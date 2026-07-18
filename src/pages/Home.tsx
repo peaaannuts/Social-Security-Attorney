@@ -97,7 +97,14 @@ export default function Home({ theme, onToggleTheme }: Props) {
           onClick={() => navigate('/drill?mode=random')}
           className="flex items-center justify-between rounded-xl bg-white px-4 py-4 text-left shadow-sm ring-1 ring-slate-200 transition active:scale-[0.99] dark:bg-slate-900 dark:ring-slate-800"
         >
-          <span className="font-medium">🎲 全科目ランダム</span>
+          <span className="font-medium">🎲 全科目ランダム（○×）</span>
+          <span className="text-slate-400">→</span>
+        </button>
+        <button
+          onClick={() => navigate('/drill?mode=random&format=select')}
+          className="flex items-center justify-between rounded-xl bg-white px-4 py-4 text-left shadow-sm ring-1 ring-slate-200 transition active:scale-[0.99] dark:bg-slate-900 dark:ring-slate-800"
+        >
+          <span className="font-medium">✍️ 選択式（空欄補充）</span>
           <span className="text-slate-400">→</span>
         </button>
         <button

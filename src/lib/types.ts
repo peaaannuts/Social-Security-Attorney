@@ -13,8 +13,13 @@ export const SUBJECTS = [
 
 export type Subject = (typeof SUBJECTS)[number]
 
-// 出題形式。MVPは ○×（択一の肢を分解した一問一答）。選択式はフェーズ2。
+// 出題形式。○×（択一の肢を分解した一問一答）と 選択式（空欄補充クローズ）。
 export type QuestionFormat = 'ox' | 'select'
+
+// 選択式の空欄プレースホルダ。問題文にこのトークン（または2文字以上の
+// アンダースコア）を置くと、演習画面で空欄として描画される。
+export const BLANK_TOKEN = '＿＿＿'
+export const BLANK_RE = /[_＿]{2,}/
 
 export interface Question {
   id?: number
@@ -24,6 +29,8 @@ export interface Question {
   questionText: string
   // ○×形式: '○' | '×' 。選択式: 正答の語句
   answer: string
+  // 選択式の選択肢（正答を含む）。○×では未使用。
+  choices?: string[]
   explanation: string
   // 出典（例: 2023年 択一 労基 問3）
   source?: string
@@ -60,6 +67,7 @@ export interface QuestionImportRow {
   format?: string
   questionText: string
   answer: string
+  choices?: string | string[]
   explanation?: string
   source?: string
   tags?: string | string[]

@@ -11,13 +11,20 @@ import {
   type ImportResult,
   type BackupData,
 } from '../lib/store'
-import { SUBJECTS, type Question, type Subject } from '../lib/types'
+import {
+  SUBJECTS,
+  BLANK_TOKEN,
+  type Question,
+  type QuestionFormat,
+  type Subject,
+} from '../lib/types'
 import { downloadText, todayStamp } from '../lib/download'
 import { importSeedPack } from '../lib/seedInit'
 
-const CSV_TEMPLATE = `subject,format,questionText,answer,explanation,source,tags
-労基・安衛,ox,使用者は原則として毎週少なくとも1回の休日を与えなければならない。,○,労基法35条1項。週休制が原則。,労基法35条,数字要件|休日
-国年,ox,老齢基礎年金の受給資格期間は原則25年以上必要である。,×,平成29年8月から10年に短縮された。,国年法26条,法改正|数字要件`
+const CSV_TEMPLATE = `subject,format,questionText,answer,choices,explanation,source,tags
+労基・安衛,ox,使用者は原則として毎週少なくとも1回の休日を与えなければならない。,○,,労基法35条1項。週休制が原則。,労基法35条,数字要件|休日
+国年,ox,老齢基礎年金の受給資格期間は原則25年以上必要である。,×,,平成29年8月から10年に短縮された。,国年法26条,法改正|数字要件
+労基・安衛,select,法定労働時間は原則として1週間について＿＿＿時間である。,40,36|40|44|48,労基法32条。1週40時間・1日8時間が原則。,労基法32条,選択式|数字要件`
 
 export default function Data() {
   const questions = useLiveQuery(() => db.questions.orderBy('createdAt').reverse().toArray(), [], [])
@@ -219,6 +226,11 @@ export default function Data() {
                 <span className="rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                   {q.subject}
                 </span>
+                {q.format === 'select' && (
+                  <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-xs text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                    選択式
+                  </span>
+                )}
                 <span className="text-xs font-bold text-slate-500">正答: {q.answer}</span>
               </div>
               <p className="line-clamp-3 text-sm">{q.questionText}</p>
@@ -300,42 +312,59 @@ function QuestionEditor({
   onClose: () => void
 }) {
   const [subject, setSubject] = useState<Subject>(question?.subject ?? SUBJECTS[0])
+  const [format, setFormat] = useState<QuestionFormat>(question?.format ?? 'ox')
   const [questionText, setQuestionText] = useState(question?.questionText ?? '')
   const [answer, setAnswer] = useState<string>(question?.answer ?? '○')
+  const [choices, setChoices] = useState((question?.choices ?? []).join('\n'))
   const [explanation, setExplanation] = useState(question?.explanation ?? '')
   const [source, setSource] = useState(question?.source ?? '')
   const [tags, setTags] = useState((question?.tags ?? []).join('、'))
   const [saving, setSaving] = useState(false)
+
+  // 形式を選択式に切り替えたとき、○×の名残(answer)をクリアして入力しやすくする
+  function changeFormat(f: QuestionFormat) {
+    setFormat(f)
+    if (f === 'select' && (answer === '○' || answer === '×')) setAnswer('')
+    if (f === 'ox' && answer !== '○' && answer !== '×') setAnswer('○')
+  }
 
   async function save() {
     if (!questionText.trim()) {
       alert('問題文を入力してください')
       return
     }
+    const choiceArr = choices
+      .split(/[\n,、|｜]/)
+      .map((c) => c.trim())
+      .filter(Boolean)
+    if (format === 'select') {
+      if (!answer.trim()) {
+        alert('正答（空欄に入る語句）を入力してください')
+        return
+      }
+      if (!choiceArr.includes(answer.trim())) choiceArr.push(answer.trim())
+      if (choiceArr.length < 2) {
+        alert('選択肢を2つ以上入力してください（1行に1つ）')
+        return
+      }
+    }
     setSaving(true)
     const tagArr = tags.split(/[,、|]/).map((t) => t.trim()).filter(Boolean)
+    const common = {
+      subject,
+      format,
+      questionText: questionText.trim(),
+      answer: answer.trim(),
+      choices: format === 'select' ? choiceArr : undefined,
+      explanation: explanation.trim(),
+      source: source.trim() || undefined,
+      tags: tagArr,
+    }
     if (question?.id) {
-      await updateQuestion(question.id, {
-        subject,
-        questionText: questionText.trim(),
-        answer,
-        explanation: explanation.trim(),
-        source: source.trim() || undefined,
-        tags: tagArr,
-      })
+      await updateQuestion(question.id, common)
     } else {
       const now = Date.now()
-      await db.questions.add({
-        subject,
-        format: 'ox',
-        questionText: questionText.trim(),
-        answer,
-        explanation: explanation.trim(),
-        source: source.trim() || undefined,
-        tags: tagArr,
-        createdAt: now,
-        updatedAt: now,
-      })
+      await db.questions.add({ ...common, createdAt: now, updatedAt: now })
     }
     setSaving(false)
     onClose()
@@ -366,34 +395,84 @@ function QuestionEditor({
             </select>
           </Field>
 
-          <Field label="問題文">
-            <textarea
-              value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
-            />
-          </Field>
-
-          <Field label="正答">
+          <Field label="形式">
             <div className="flex gap-2">
-              {['○', '×'].map((v) => (
+              {(
+                [
+                  ['ox', '○×'],
+                  ['select', '選択式（空欄補充）'],
+                ] as [QuestionFormat, string][]
+              ).map(([v, label]) => (
                 <button
                   key={v}
-                  onClick={() => setAnswer(v)}
-                  className={`flex-1 rounded-lg py-2.5 text-xl font-bold ${
-                    answer === v
-                      ? v === '○'
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-rose-500 text-white'
-                      : 'bg-slate-200 dark:bg-slate-800'
+                  onClick={() => changeFormat(v)}
+                  className={`flex-1 rounded-lg py-2 text-sm font-medium ${
+                    format === v ? 'bg-sky-600 text-white' : 'bg-slate-200 dark:bg-slate-800'
                   }`}
                 >
-                  {v}
+                  {label}
                 </button>
               ))}
             </div>
           </Field>
+
+          <Field
+            label={format === 'select' ? `問題文（空欄は ${BLANK_TOKEN} で表す）` : '問題文'}
+          >
+            <textarea
+              value={questionText}
+              onChange={(e) => setQuestionText(e.target.value)}
+              rows={3}
+              placeholder={
+                format === 'select'
+                  ? `例）法定労働時間は原則1週${BLANK_TOKEN}時間である。`
+                  : ''
+              }
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
+            />
+          </Field>
+
+          {format === 'ox' ? (
+            <Field label="正答">
+              <div className="flex gap-2">
+                {['○', '×'].map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setAnswer(v)}
+                    className={`flex-1 rounded-lg py-2.5 text-xl font-bold ${
+                      answer === v
+                        ? v === '○'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-rose-500 text-white'
+                        : 'bg-slate-200 dark:bg-slate-800'
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </Field>
+          ) : (
+            <>
+              <Field label="正答（空欄に入る語句）">
+                <input
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  placeholder="例）40"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
+                />
+              </Field>
+              <Field label="選択肢（1行に1つ。正答が無ければ自動で追加）">
+                <textarea
+                  value={choices}
+                  onChange={(e) => setChoices(e.target.value)}
+                  rows={4}
+                  placeholder={'36\n40\n44\n48'}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
+                />
+              </Field>
+            </>
+          )}
 
           <Field label="解説">
             <textarea

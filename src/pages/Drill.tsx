@@ -1,7 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import type { Question, Subject } from '../lib/types'
+import { BLANK_RE, type Question, type QuestionFormat, type Subject } from '../lib/types'
 import { buildSession, recordAnswer, type SessionMode } from '../lib/store'
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+// 選択式の表示用選択肢を組み立てる。データに choices があればそれを使い、
+// 無い場合はセッション内の他の選択式問題の正答を誤答肢として流用する（保険）。
+function buildChoices(current: Question, pool: Question[]): string[] {
+  const set = new Set<string>(current.choices ?? [])
+  set.add(current.answer)
+  if (set.size < 2) {
+    for (const q of shuffle(pool)) {
+      if (q.id === current.id || q.format !== 'select') continue
+      set.add(q.answer)
+      if (set.size >= 4) break
+    }
+  }
+  return shuffle([...set])
+}
 
 type Phase = 'loading' | 'question' | 'revealed' | 'done' | 'empty'
 
@@ -15,12 +39,15 @@ export default function Drill() {
 
   const mode: SessionMode = useMemo(() => {
     const m = params.get('mode')
-    if (m === 'review') return { kind: 'review' }
+    const fmt = params.get('format')
+    const format: QuestionFormat | undefined =
+      fmt === 'select' ? 'select' : fmt === 'ox' ? 'ox' : undefined
+    if (m === 'review') return { kind: 'review', format }
     if (m === 'subject') {
       const subject = params.get('subject') as Subject | null
-      if (subject) return { kind: 'subject', subject }
+      if (subject) return { kind: 'subject', subject, format }
     }
-    return { kind: 'random' }
+    return { kind: 'random', format }
   }, [params])
 
   const [phase, setPhase] = useState<Phase>('loading')
@@ -28,6 +55,7 @@ export default function Drill() {
   const [index, setIndex] = useState(0)
   const [lowConfidence, setLowConfidence] = useState(false)
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
   const [results, setResults] = useState<AnswerRecord[]>([])
   const shownAt = useRef<number>(Date.now())
 
@@ -53,10 +81,17 @@ export default function Drill() {
 
   const current = queue[index]
 
-  async function handleAnswer(choice: '○' | '×') {
+  // 選択式の選択肢（問題が変わるたびにシャッフル）
+  const choices = useMemo(
+    () => (current?.format === 'select' ? buildChoices(current, queue) : []),
+    [current?.id, queue],
+  )
+
+  async function submit(value: string) {
     if (!current || phase !== 'question') return
-    const correct = choice === current.answer
+    const correct = value === current.answer
     const responseTimeMs = Date.now() - shownAt.current
+    setSelected(value)
     setLastCorrect(correct)
     setPhase('revealed')
     setResults((r) => [...r, { correct }])
@@ -66,6 +101,7 @@ export default function Drill() {
   function next() {
     setLowConfidence(false)
     setLastCorrect(null)
+    setSelected(null)
     if (index + 1 >= queue.length) {
       setPhase('done')
     } else {
@@ -75,12 +111,18 @@ export default function Drill() {
     }
   }
 
-  const modeLabel =
+  const baseLabel =
     mode.kind === 'review'
       ? '復習'
       : mode.kind === 'subject'
         ? mode.subject
         : '全科目ランダム'
+  const modeLabel =
+    mode.format === 'select'
+      ? `${baseLabel}・選択式`
+      : mode.format === 'ox'
+        ? `${baseLabel}・○×`
+        : baseLabel
 
   if (phase === 'loading') {
     return <Centered>読み込み中…</Centered>
@@ -182,9 +224,28 @@ export default function Drill() {
           <span className="text-xs text-slate-400">{modeLabel}</span>
         </div>
 
-        {/* 問題文 */}
+        {/* 問題文（選択式は空欄をハイライト、解答後は正答を差し込む） */}
         <div className="mt-4 flex-1">
-          <p className="text-lg leading-relaxed">{current.questionText}</p>
+          <p className="text-lg leading-relaxed">
+            {current.format === 'select' && BLANK_RE.test(current.questionText)
+              ? current.questionText.split(BLANK_RE).map((part, i, arr) => (
+                  <span key={i}>
+                    {part}
+                    {i < arr.length - 1 && (
+                      <span
+                        className={`mx-0.5 inline-block min-w-16 rounded px-2 text-center font-bold ${
+                          phase === 'revealed'
+                            ? 'bg-emerald-200 text-emerald-900 dark:bg-emerald-800/70 dark:text-emerald-100'
+                            : 'bg-slate-200 text-transparent dark:bg-slate-700'
+                        }`}
+                      >
+                        {phase === 'revealed' ? current.answer : '＿＿＿'}
+                      </span>
+                    )}
+                  </span>
+                ))
+              : current.questionText}
+          </p>
 
           {phase === 'revealed' && (
             <div
@@ -194,11 +255,16 @@ export default function Drill() {
                   : 'border-rose-300 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-900/20'
               }`}
             >
-              <div className="flex items-center gap-2 font-bold">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-bold">
                 <span>{lastCorrect ? '✅ 正解' : '❌ 不正解'}</span>
                 <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
                   正答: {current.answer}
                 </span>
+                {!lastCorrect && selected && current.format === 'select' && (
+                  <span className="text-sm font-normal text-rose-500">
+                    あなた: {selected}
+                  </span>
+                )}
               </div>
               {current.explanation && (
                 <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
@@ -238,20 +304,34 @@ export default function Drill() {
                 />
                 自信なし（正解でも短い間隔で再出題）
               </label>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleAnswer('○')}
-                  className="flex h-20 flex-1 items-center justify-center rounded-2xl bg-emerald-500 text-3xl font-bold text-white shadow-lg shadow-emerald-500/20 active:scale-95"
-                >
-                  ○
-                </button>
-                <button
-                  onClick={() => handleAnswer('×')}
-                  className="flex h-20 flex-1 items-center justify-center rounded-2xl bg-rose-500 text-3xl font-bold text-white shadow-lg shadow-rose-500/20 active:scale-95"
-                >
-                  ×
-                </button>
-              </div>
+              {current.format === 'select' ? (
+                <div className="flex flex-col gap-2">
+                  {choices.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => submit(c)}
+                      className="flex min-h-12 w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-base font-medium text-slate-900 shadow-sm ring-1 ring-slate-300 active:scale-[0.98] dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-600"
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => submit('○')}
+                    className="flex h-20 flex-1 items-center justify-center rounded-2xl bg-emerald-500 text-3xl font-bold text-white shadow-lg shadow-emerald-500/20 active:scale-95"
+                  >
+                    ○
+                  </button>
+                  <button
+                    onClick={() => submit('×')}
+                    className="flex h-20 flex-1 items-center justify-center rounded-2xl bg-rose-500 text-3xl font-bold text-white shadow-lg shadow-rose-500/20 active:scale-95"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <button

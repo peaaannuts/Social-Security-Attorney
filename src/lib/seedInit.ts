@@ -28,6 +28,7 @@ export async function importSeedPack(): Promise<ImportResult> {
       format: q.format,
       questionText: q.questionText,
       answer: q.answer,
+      choices: q.choices,
       explanation: q.explanation,
       source: q.source,
       tags: q.tags,

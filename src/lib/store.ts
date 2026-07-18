@@ -2,6 +2,7 @@ import { db } from './db'
 import {
   SUBJECTS,
   type Question,
+  type QuestionFormat,
   type QuestionImportRow,
   type StudyLog,
   type ReviewState,
@@ -11,10 +12,11 @@ import { computeNextReview, gradeFrom, startOfDay, DAY_MS } from './srs'
 
 // ---- 出題モード -----------------------------------------------------------
 
+// format を指定すると、その形式（○× / 選択式）の問題のみを出題する。
 export type SessionMode =
-  | { kind: 'subject'; subject: Subject }
-  | { kind: 'random' }
-  | { kind: 'review' }
+  | { kind: 'subject'; subject: Subject; format?: QuestionFormat }
+  | { kind: 'random'; format?: QuestionFormat }
+  | { kind: 'review'; format?: QuestionFormat }
 
 const DEFAULT_SESSION_SIZE = 10
 
@@ -50,13 +52,16 @@ export async function getDueCount(now = Date.now()): Promise<number> {
 }
 
 // 未学習（ReviewState を持たない）問題
-async function getNewQuestions(subject?: Subject): Promise<Question[]> {
+async function getNewQuestions(
+  subject?: Subject,
+  format?: QuestionFormat,
+): Promise<Question[]> {
   const all = subject
     ? await db.questions.where('subject').equals(subject).toArray()
     : await db.questions.toArray()
   const states = await db.reviewStates.toArray()
   const seen = new Set(states.map((s) => s.questionId))
-  return all.filter((q) => !seen.has(q.id!))
+  return all.filter((q) => !seen.has(q.id!) && (!format || q.format === format))
 }
 
 // セッション用の出題リストを組み立てる
@@ -65,18 +70,20 @@ export async function buildSession(
   size = DEFAULT_SESSION_SIZE,
 ): Promise<Question[]> {
   const now = Date.now()
+  const format = mode.format
+  const matchFmt = (q: Question) => !format || q.format === format
 
   if (mode.kind === 'review') {
-    return (await getDueQuestions(now)).slice(0, size)
+    return (await getDueQuestions(now)).filter(matchFmt).slice(0, size)
   }
 
   const subject = mode.kind === 'subject' ? mode.subject : undefined
 
   // 「復習期限が来ているもの」を優先し、足りなければ未学習で埋める
   const due = (await getDueQuestions(now)).filter(
-    (q) => !subject || q.subject === subject,
+    (q) => matchFmt(q) && (!subject || q.subject === subject),
   )
-  const fresh = shuffle(await getNewQuestions(subject))
+  const fresh = shuffle(await getNewQuestions(subject, format))
 
   const picked: Question[] = []
   const usedIds = new Set<number>()
@@ -89,9 +96,11 @@ export async function buildSession(
 
   // それでも足りなければ、既習から古い順で補充（＝復習）
   if (picked.length < size) {
-    const all = subject
-      ? await db.questions.where('subject').equals(subject).toArray()
-      : await db.questions.toArray()
+    const all = (
+      subject
+        ? await db.questions.where('subject').equals(subject).toArray()
+        : await db.questions.toArray()
+    ).filter(matchFmt)
     for (const q of shuffle(all)) {
       if (picked.length >= size) break
       if (usedIds.has(q.id!)) continue
@@ -334,11 +343,19 @@ export async function importQuestions(rows: QuestionImportRow[]): Promise<Import
           .map((t) => t.trim())
           .filter(Boolean)
 
+    const choices = Array.isArray(row.choices)
+      ? row.choices.map((c) => String(c).trim()).filter(Boolean)
+      : (row.choices ?? '')
+          .split(/[,、|｜\/]/)
+          .map((c) => c.trim())
+          .filter(Boolean)
+
     toAdd.push({
       subject,
       format,
       questionText: row.questionText.trim(),
       answer,
+      choices: format === 'select' && choices.length ? choices : undefined,
       explanation: (row.explanation ?? '').trim(),
       source: (row.source ?? '').trim() || undefined,
       tags,
@@ -405,6 +422,7 @@ export function parseCSV(text: string): QuestionImportRow[] {
       format: obj.format ?? obj['形式'] ?? 'ox',
       questionText: obj.questionText ?? obj['問題文'] ?? '',
       answer: obj.answer ?? obj['正答'] ?? '',
+      choices: obj.choices ?? obj['選択肢'] ?? '',
       explanation: obj.explanation ?? obj['解説'] ?? '',
       source: obj.source ?? obj['出典'] ?? '',
       tags: obj.tags ?? obj['タグ'] ?? '',
