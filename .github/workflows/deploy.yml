@@ -2,7 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # このリポジトリの既定ブランチ（GitHub Pages 環境が許可するブランチ）から配信する。
+    # 既定ブランチを main に変更した場合は main からも配信される。
+    branches: [main, claude/app-creation-pnxoh1]
   workflow_dispatch:
 
 permissions:
