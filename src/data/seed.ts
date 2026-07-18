@@ -1,11 +1,12 @@
-import type { Question } from '../lib/types'
+import type { SeedQuestion } from '../lib/types'
+import { extraQuestions } from './pack-extra'
 
 // 初期サンプル問題。
 // 出典は「法令条文（公表資料）」ベースの自作要約のみ。市販教材の転載はしない。
 // 誤りがあればアプリ内の編集で直す前提のスターターセット。
-type Seed = Omit<Question, 'id' | 'createdAt' | 'updatedAt'>
+type Seed = SeedQuestion
 
-export const seedQuestions: Seed[] = [
+const coreQuestions: Seed[] = [
   // --- 労基・安衛 ---
   {
     subject: '労基・安衛',
@@ -802,3 +803,6 @@ export const seedQuestions: Seed[] = [
     tags: ['選択式', '数字要件', '出産手当金'],
   },
 ]
+
+// 収録問題 = コア（初期サンプル）＋ 追加パック
+export const seedQuestions: Seed[] = [...coreQuestions, ...extraQuestions]

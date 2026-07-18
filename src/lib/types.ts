@@ -39,6 +39,9 @@ export interface Question {
   updatedAt: number
 }
 
+// シードデータ用（id・作成日時を除いた問題）
+export type SeedQuestion = Omit<Question, 'id' | 'createdAt' | 'updatedAt'>
+
 export interface StudyLog {
   id?: number
   questionId: number
