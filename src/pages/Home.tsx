@@ -108,6 +108,13 @@ export default function Home({ theme, onToggleTheme }: Props) {
           <span className="text-slate-400">→</span>
         </button>
         <button
+          onClick={() => navigate('/exam')}
+          className="flex items-center justify-between rounded-xl bg-indigo-600 px-4 py-4 text-left text-white shadow-sm transition active:scale-[0.99]"
+        >
+          <span className="font-medium">🎯 模試モード（時間制限・足切り判定）</span>
+          <span className="opacity-80">→</span>
+        </button>
+        <button
           onClick={() => setShowSubjects((v) => !v)}
           className="flex items-center justify-between rounded-xl bg-white px-4 py-4 text-left shadow-sm ring-1 ring-slate-200 transition active:scale-[0.99] dark:bg-slate-900 dark:ring-slate-800"
         >

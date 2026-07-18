@@ -1,31 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BLANK_RE, type Question, type QuestionFormat, type Subject } from '../lib/types'
-import { buildSession, recordAnswer, type SessionMode } from '../lib/store'
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
-// 選択式の表示用選択肢を組み立てる。データに choices があればそれを使い、
-// 無い場合はセッション内の他の選択式問題の正答を誤答肢として流用する（保険）。
-function buildChoices(current: Question, pool: Question[]): string[] {
-  const set = new Set<string>(current.choices ?? [])
-  set.add(current.answer)
-  if (set.size < 2) {
-    for (const q of shuffle(pool)) {
-      if (q.id === current.id || q.format !== 'select') continue
-      set.add(q.answer)
-      if (set.size >= 4) break
-    }
-  }
-  return shuffle([...set])
-}
+import { buildSession, buildChoices, recordAnswer, type SessionMode } from '../lib/store'
 
 type Phase = 'loading' | 'question' | 'revealed' | 'done' | 'empty'
 

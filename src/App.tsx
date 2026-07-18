@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
 import Home from './pages/Home'
 import Drill from './pages/Drill'
+import Exam from './pages/Exam'
 import Stats from './pages/Stats'
 import Data from './pages/Data'
 import { ensureSeed } from './lib/seedInit'
@@ -12,7 +13,8 @@ export default function App() {
   const { theme, toggle } = useTheme()
   const [ready, setReady] = useState(false)
   const location = useLocation()
-  const isDrill = location.pathname.startsWith('/drill')
+  const immersive =
+    location.pathname.startsWith('/drill') || location.pathname.startsWith('/exam')
 
   useEffect(() => {
     ensureSeed().finally(() => setReady(true))
@@ -33,12 +35,13 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home theme={theme} onToggleTheme={toggle} />} />
             <Route path="/drill" element={<Drill />} />
+            <Route path="/exam" element={<Exam />} />
             <Route path="/stats" element={<Stats />} />
             <Route path="/data" element={<Data />} />
           </Routes>
         </main>
-        {/* 演習中はナビを隠して集中・誤タップ防止 */}
-        {!isDrill && <BottomNav />}
+        {/* 演習・模試中はナビを隠して集中・誤タップ防止 */}
+        {!immersive && <BottomNav />}
       </div>
     </div>
   )

@@ -29,6 +29,35 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
+// 選択式の表示用選択肢を組み立てる。データに choices があればそれを使い、
+// 無い場合は pool（同一セッションの他問）の正答を誤答肢に流用する。
+export function buildChoices(current: Question, pool: Question[]): string[] {
+  const set = new Set<string>(current.choices ?? [])
+  set.add(current.answer)
+  if (set.size < 2) {
+    for (const q of shuffle(pool)) {
+      if (q.id === current.id || q.format !== 'select') continue
+      set.add(q.answer)
+      if (set.size >= 4) break
+    }
+  }
+  return shuffle([...set])
+}
+
+// 模試用の出題を組み立てる。全科目から均等に perSubject 問ずつ集める
+// （科目別基準点＝足切り判定のため、各科目を必ず含める）。
+export async function buildMockExam(perSubject: number): Promise<Question[]> {
+  const all = await db.questions.toArray()
+  const bySubject = new Map<Subject, Question[]>()
+  for (const s of SUBJECTS) bySubject.set(s, [])
+  for (const q of all) bySubject.get(q.subject)?.push(q)
+  const picked: Question[] = []
+  for (const s of SUBJECTS) {
+    picked.push(...shuffle(bySubject.get(s) ?? []).slice(0, perSubject))
+  }
+  return shuffle(picked)
+}
+
 // 復習キュー: 次回出題日を過ぎた問題（新規＝未学習も含める）
 export async function getDueQuestions(now = Date.now()): Promise<Question[]> {
   const dueStates = await db.reviewStates
