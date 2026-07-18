@@ -13,6 +13,7 @@ import {
 } from '../lib/store'
 import { SUBJECTS, type Question, type Subject } from '../lib/types'
 import { downloadText, todayStamp } from '../lib/download'
+import { importSeedPack } from '../lib/seedInit'
 
 const CSV_TEMPLATE = `subject,format,questionText,answer,explanation,source,tags
 労基・安衛,ox,使用者は原則として毎週少なくとも1回の休日を与えなければならない。,○,労基法35条1項。週休制が原則。,労基法35条,数字要件|休日
@@ -140,6 +141,19 @@ export default function Data() {
             ＋1問追加
           </button>
         </div>
+        <button
+          onClick={async () => {
+            setMessage(null)
+            setImportResult(await importSeedPack())
+          }}
+          className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-2.5 text-sm font-medium text-sky-700 active:scale-[0.99] dark:border-sky-800/60 dark:bg-sky-900/20 dark:text-sky-300"
+        >
+          📚 収録サンプル問題を取り込む（重複は自動スキップ）
+        </button>
+        <p className="text-xs text-slate-400">
+          アプリ更新で問題が追加された際に押すと、新規分だけが取り込まれます。
+          金額など制度改定で変わる論点には「#要確認」タグを付けています。
+        </p>
       </section>
 
       {/* バックアップ */}
