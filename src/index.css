@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+
+/* クラスベースのダークモード切替（html.dark） */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  font-family:
+    system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans',
+    'Noto Sans JP', Meiryo, sans-serif;
+  /* iOS のセーフエリア対策 */
+  overscroll-behavior-y: none;
+}
+
+/* タップ時のハイライトを抑制し、片手操作の手触りを良くする */
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
