@@ -1,0 +1,54 @@
+export type Period = 'week' | 'month'
+
+function startOfDay(d: Date): Date {
+  const r = new Date(d)
+  r.setHours(0, 0, 0, 0)
+  return r
+}
+
+/** Monday-start week range containing `date`. */
+export function getWeekRange(date: Date): { start: Date; end: Date } {
+  const start = startOfDay(date)
+  const day = start.getDay() // 0 (Sun) - 6 (Sat)
+  const diffToMonday = (day + 6) % 7
+  start.setDate(start.getDate() - diffToMonday)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 7)
+  return { start, end }
+}
+
+export function getMonthRange(date: Date): { start: Date; end: Date } {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1)
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 1)
+  return { start, end }
+}
+
+export function getPeriodRange(period: Period, date: Date = new Date()) {
+  return period === 'week' ? getWeekRange(date) : getMonthRange(date)
+}
+
+/** Last `count` Monday-start week ranges, oldest first, including the current week. */
+export function getRecentWeeks(count: number, date: Date = new Date()) {
+  const weeks: { start: Date; end: Date }[] = []
+  const { start: currentStart } = getWeekRange(date)
+  for (let i = count - 1; i >= 0; i--) {
+    const start = new Date(currentStart)
+    start.setDate(start.getDate() - i * 7)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 7)
+    weeks.push({ start, end })
+  }
+  return weeks
+}
+
+export function formatShortDate(d: Date): string {
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+export function formatDateTime(ms: number): string {
+  const d = new Date(ms)
+  const weekday = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${d.getMonth() + 1}/${d.getDate()}(${weekday}) ${hh}:${mm}`
+}
