@@ -1,5 +1,5 @@
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { categoricalColor, ink } from '../../lib/chartColors'
+import { categoryColor, ink } from '../../lib/chartColors'
 import { CHORE_CATEGORIES, type ChoreCategory } from '../../types'
 
 interface Props {
@@ -12,7 +12,7 @@ export function CategoryPie({ totals, isDark }: Props) {
   const slices = CHORE_CATEGORIES.map((cat, i) => ({
     name: cat,
     value: totals[cat] ?? 0,
-    color: categoricalColor(i, isDark),
+    color: categoryColor(i, isDark),
   })).filter((s) => s.value > 0)
 
   return (
