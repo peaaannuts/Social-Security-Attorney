@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useHousehold } from '../contexts/HouseholdContext'
-import { useRecentLogs } from '../hooks/useLogs'
+import { useAllLogs, useRecentLogs } from '../hooks/useLogs'
 import { deleteLog, updateLog } from '../lib/logService'
+import { buildLogsCsv, downloadCsv } from '../lib/csvExport'
 import { formatDateTime } from '../lib/date'
 import { memberColor } from '../lib/chartColors'
 import { useIsDark } from '../lib/theme'
@@ -94,15 +95,37 @@ export function HistoryTab() {
   const { household, myNickname, partnerUid } = useHousehold()
   const isDark = useIsDark()
   const { logs, loading } = useRecentLogs(household?.id ?? null)
+  const { logs: allLogs } = useAllLogs(household?.id ?? null)
   const [editing, setEditing] = useState<ChoreLog | null>(null)
 
   if (!household || !user) return null
 
   const partnerNickname = partnerUid ? household.nicknames?.[partnerUid] : 'パートナー'
 
+  function handleExportCsv() {
+    if (!household) return
+    const csv = buildLogsCsv(allLogs, household.nicknames ?? {})
+    const today = new Date().toISOString().slice(0, 10)
+    // Filename stays ASCII (content is Japanese) — Chromium silently drops a
+    // blob: download's filename+extension entirely when it contains
+    // non-ASCII characters, falling back to a bare "download" with no
+    // extension.
+    downloadCsv(`housework-log_${today}.csv`, csv)
+  }
+
   return (
     <div className="min-h-full bg-neutral-50 px-4 pb-28 pt-6 dark:bg-neutral-950">
-      <h1 className="mb-4 text-xl font-bold text-neutral-900 dark:text-white">履歴</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-xl font-bold text-neutral-900 dark:text-white">履歴</h1>
+        <button
+          type="button"
+          onClick={handleExportCsv}
+          disabled={allLogs.length === 0}
+          className="text-sm font-semibold text-blue-600 disabled:opacity-40 dark:text-blue-400"
+        >
+          CSVで書き出す
+        </button>
+      </div>
 
       {loading && <p className="text-sm text-neutral-400">読み込み中...</p>}
       {!loading && logs.length === 0 && (
