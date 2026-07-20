@@ -12,7 +12,8 @@ import { SettingsTab } from './screens/SettingsTab'
 
 function LoadingScreen() {
   return (
-    <div className="flex min-h-full items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+    <div className="flex min-h-full flex-col items-center justify-center gap-3">
+      <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-blue-200 border-t-blue-500" />
       <p className="text-sm text-neutral-400">読み込み中...</p>
     </div>
   )

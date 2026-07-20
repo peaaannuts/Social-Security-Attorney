@@ -12,6 +12,17 @@ body {
   margin: 0;
   font-family: system-ui, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Warm, home-like backdrop: a soft sky fading into cream, fixed so it
+     stays put while content scrolls. Replaces the flat cold gray. */
+  background: linear-gradient(180deg, #e9f0ff 0%, #f7f4ef 26%, #f6f3ed 100%);
+  background-attachment: fixed;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: linear-gradient(180deg, #191d26 0%, #111318 32%, #0f1115 100%);
+    background-attachment: fixed;
+  }
 }
 
 /* Avoid double-tap zoom / tap highlight on mobile one-tap buttons */

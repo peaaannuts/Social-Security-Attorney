@@ -4,6 +4,7 @@ import { useHousehold } from '../contexts/HouseholdContext'
 import { useAllLogs, useRecentLogs } from '../hooks/useLogs'
 import { deleteLog, updateLog } from '../lib/logService'
 import { buildLogsCsv, downloadCsv } from '../lib/csvExport'
+import { categoryChipColor, categoryEmoji } from '../lib/categoryStyle'
 import { formatDateTime } from '../lib/date'
 import { memberColor } from '../lib/chartColors'
 import { useIsDark } from '../lib/theme'
@@ -114,14 +115,14 @@ export function HistoryTab() {
   }
 
   return (
-    <div className="min-h-full bg-neutral-50 px-4 pb-28 pt-6 dark:bg-neutral-950">
+    <div className="min-h-full px-4 pb-28 pt-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-neutral-900 dark:text-white">履歴</h1>
+        <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">🕒 履歴</h1>
         <button
           type="button"
           onClick={handleExportCsv}
           disabled={allLogs.length === 0}
-          className="text-sm font-semibold text-blue-600 disabled:opacity-40 dark:text-blue-400"
+          className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-blue-600 shadow-sm ring-1 ring-black/5 disabled:opacity-40 dark:bg-neutral-900 dark:text-blue-400 dark:ring-white/10"
         >
           CSVで書き出す
         </button>
@@ -129,7 +130,14 @@ export function HistoryTab() {
 
       {loading && <p className="text-sm text-neutral-400">読み込み中...</p>}
       {!loading && logs.length === 0 && (
-        <p className="text-sm text-neutral-400">まだ記録がありません</p>
+        <div className="mt-6 rounded-2xl bg-white/70 p-8 text-center shadow-sm ring-1 ring-black/5 dark:bg-neutral-900/70 dark:ring-white/10">
+          <p className="text-3xl">📝</p>
+          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+            まだ記録がありません。
+            <br />
+            ホームから家事をタップすると、ここに記録が並びます。
+          </p>
+        </div>
       )}
 
       <div className="flex flex-col gap-2">
@@ -141,21 +149,27 @@ export function HistoryTab() {
               key={log.id}
               type="button"
               onClick={() => setEditing(log)}
-              className="flex items-center justify-between rounded-xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-neutral-200 active:bg-neutral-50 dark:bg-neutral-900 dark:ring-neutral-800 dark:active:bg-neutral-800"
+              className="flex items-center gap-3 rounded-2xl bg-white px-3 py-3 text-left shadow-sm ring-1 ring-black/5 active:bg-neutral-50 dark:bg-neutral-900 dark:ring-white/10 dark:active:bg-neutral-800"
             >
-              <div className="flex items-center gap-3">
-                <span
-                  className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: memberColor(isSelf, isDark) }}
-                />
-                <div>
-                  <p className="font-medium text-neutral-900 dark:text-white">{log.choreName}</p>
-                  <p className="text-xs text-neutral-400">
-                    {who} ・ {formatDateTime(log.doneAt)} ・ {log.minutes}分
-                  </p>
-                </div>
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl"
+                style={{ backgroundColor: categoryChipColor(log.category, isDark) }}
+              >
+                {categoryEmoji(log.category)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-neutral-900 dark:text-white">
+                  {log.choreName}
+                </p>
+                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-400">
+                  <span
+                    className="inline-block h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: memberColor(isSelf, isDark) }}
+                  />
+                  {who} ・ {formatDateTime(log.doneAt)} ・ {log.minutes}分
+                </p>
               </div>
-              <span className="text-neutral-300">⋯</span>
+              <span className="shrink-0 text-neutral-300">›</span>
             </button>
           )
         })}

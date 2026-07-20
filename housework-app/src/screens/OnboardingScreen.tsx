@@ -48,28 +48,31 @@ export function OnboardingScreen() {
   }
 
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-8 bg-neutral-50 px-6 py-12 dark:bg-neutral-950">
+    <div className="flex min-h-full flex-col items-center justify-center gap-8 px-6 py-12">
       <div className="text-center">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-500 text-4xl shadow-lg shadow-blue-500/25">
+          🏠
+        </div>
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">家事分担アプリ</h1>
         <p className="mt-2 max-w-xs text-sm text-neutral-500 dark:text-neutral-400">
           2人の家事の量を記録して、フェアな話し合いの材料にしよう
         </p>
       </div>
 
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-sm dark:bg-neutral-900">
+      <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10">
         {mode === 'choose' && (
           <div className="flex flex-col gap-3">
             <button
               type="button"
               onClick={() => setMode('create')}
-              className="rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white active:bg-blue-700"
+              className="rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 px-4 py-3.5 font-semibold text-white shadow-md shadow-blue-500/20 active:opacity-90"
             >
               世帯を新規作成する
             </button>
             <button
               type="button"
               onClick={() => setMode('join')}
-              className="rounded-xl border border-neutral-300 px-4 py-3 font-semibold text-neutral-700 active:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:active:bg-neutral-800"
+              className="rounded-2xl border border-neutral-300 px-4 py-3.5 font-semibold text-neutral-700 active:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:active:bg-neutral-800"
             >
               招待コードで参加する
             </button>
@@ -119,7 +122,7 @@ export function OnboardingScreen() {
               type="button"
               disabled={submitting}
               onClick={mode === 'create' ? handleCreate : handleJoin}
-              className="rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white disabled:opacity-50 active:bg-blue-700"
+              className="rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 px-4 py-3.5 font-semibold text-white shadow-md shadow-blue-500/20 disabled:opacity-50 active:opacity-90"
             >
               {submitting ? '処理中...' : mode === 'create' ? '世帯を作成する' : '参加する'}
             </button>

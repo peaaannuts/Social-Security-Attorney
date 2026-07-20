@@ -9,23 +9,28 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
 
 export function TabBar({ active, onChange }: { active: TabKey; onChange: (tab: TabKey) => void }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white/95 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/95">
-      <div className="mx-auto flex max-w-lg justify-around pb-[env(safe-area-inset-bottom)]">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => onChange(tab.key)}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs ${
-              active === tab.key
-                ? 'text-blue-600 dark:text-blue-400'
-                : 'text-neutral-400 dark:text-neutral-500'
-            }`}
-          >
-            <span className="text-xl leading-none">{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/5 bg-white/85 backdrop-blur-lg dark:border-white/10 dark:bg-neutral-900/85">
+      <div className="mx-auto flex max-w-lg justify-around px-2 pb-[env(safe-area-inset-bottom)] pt-1.5">
+        {TABS.map((tab) => {
+          const isActive = active === tab.key
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => onChange(tab.key)}
+              className={`flex flex-1 flex-col items-center gap-0.5 rounded-2xl py-1.5 text-[11px] font-medium transition ${
+                isActive
+                  ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300'
+                  : 'text-neutral-400 dark:text-neutral-500'
+              }`}
+            >
+              <span className={`text-xl leading-none transition ${isActive ? '' : 'opacity-70'}`}>
+                {tab.icon}
+              </span>
+              {tab.label}
+            </button>
+          )
+        })}
       </div>
     </nav>
   )

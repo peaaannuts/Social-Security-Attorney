@@ -65,8 +65,10 @@ export function DashboardTab() {
   })
 
   return (
-    <div className="min-h-full bg-neutral-50 px-4 pb-28 pt-6 dark:bg-neutral-950">
-      <h1 className="mb-4 text-xl font-bold text-neutral-900 dark:text-white">ダッシュボード</h1>
+    <div className="min-h-full px-4 pb-28 pt-6">
+      <h1 className="mb-4 text-2xl font-bold text-neutral-900 dark:text-white">
+        📊 ダッシュボード
+      </h1>
 
       <div className="mb-4 flex gap-2">
         {(['week', 'month'] as Period[]).map((p) => (
