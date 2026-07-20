@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PwaUpdatePrompt } from './components/PwaUpdatePrompt'
 import { TabBar, type TabKey } from './components/TabBar'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { HouseholdProvider, useHousehold } from './contexts/HouseholdContext'
@@ -47,6 +48,7 @@ function App() {
       <HouseholdProvider>
         <ToastProvider>
           <AppShell />
+          <PwaUpdatePrompt />
         </ToastProvider>
       </HouseholdProvider>
     </AuthProvider>

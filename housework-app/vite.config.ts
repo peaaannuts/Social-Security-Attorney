@@ -9,7 +9,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt': a new service worker installs but waits until the user
+      // confirms (via PwaUpdatePrompt) before taking over, instead of
+      // silently swapping the running app out from under them.
+      registerType: 'prompt',
       includeAssets: ['icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
         name: '家事分担アプリ',
