@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useHousehold } from '../contexts/HouseholdContext'
 import { CategoryPie } from './dashboard/CategoryPie'
+import { ChoreBreakdown } from './dashboard/ChoreBreakdown'
 import { SplitRatioBar } from './dashboard/SplitRatioBar'
 import { TargetRatioEditor } from './dashboard/TargetRatioEditor'
 import { WeeklyTrend } from './dashboard/WeeklyTrend'
-import { useLogsInRange } from '../hooks/useLogs'
+import { useAllLogs, useLogsInRange } from '../hooks/useLogs'
 import { formatShortDate, getPeriodRange, getRecentWeeks, type Period } from '../lib/date'
 import { useIsDark } from '../lib/theme'
 import { CHORE_CATEGORIES, type ChoreCategory } from '../types'
@@ -25,6 +26,8 @@ export function DashboardTab() {
     recentWeeks[0].start,
     recentWeeks[recentWeeks.length - 1].end,
   )
+
+  const { logs: allLogs } = useAllLogs(household?.id ?? null)
 
   if (!household || !user) return null
 
@@ -107,6 +110,14 @@ export function DashboardTab() {
 
       <WeeklyTrend
         data={weeklyData}
+        selfLabel={myNickname}
+        partnerLabel={partnerNickname ?? 'パートナー'}
+        isDark={isDark}
+      />
+
+      <ChoreBreakdown
+        logs={allLogs}
+        selfUid={user.uid}
         selfLabel={myNickname}
         partnerLabel={partnerNickname ?? 'パートナー'}
         isDark={isDark}
