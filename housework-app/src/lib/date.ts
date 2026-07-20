@@ -52,3 +52,25 @@ export function formatDateTime(ms: number): string {
   const mm = String(d.getMinutes()).padStart(2, '0')
   return `${d.getMonth() + 1}/${d.getDate()}(${weekday}) ${hh}:${mm}`
 }
+
+export function formatTime(ms: number): string {
+  const d = new Date(ms)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+/** Local-day key like "2026-07-20", for grouping logs by calendar day. */
+export function dayKey(ms: number): string {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Header label for a day: 今日 / 昨日 / M/D(曜). */
+export function formatDayHeading(ms: number): string {
+  const d = startOfDay(new Date(ms))
+  const today = startOfDay(new Date())
+  const diffDays = Math.round((today.getTime() - d.getTime()) / 86_400_000)
+  if (diffDays === 0) return '今日'
+  if (diffDays === 1) return '昨日'
+  const weekday = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
+  return `${d.getMonth() + 1}/${d.getDate()}(${weekday})`
+}

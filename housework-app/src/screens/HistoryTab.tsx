@@ -5,10 +5,31 @@ import { useAllLogs, useRecentLogs } from '../hooks/useLogs'
 import { deleteLog, updateLog } from '../lib/logService'
 import { buildLogsCsv, downloadCsv } from '../lib/csvExport'
 import { categoryChipColor, categoryEmoji } from '../lib/categoryStyle'
-import { formatDateTime } from '../lib/date'
+import { dayKey, formatDayHeading, formatTime } from '../lib/date'
 import { memberColor } from '../lib/chartColors'
 import { useIsDark } from '../lib/theme'
 import type { ChoreLog } from '../types'
+
+interface DayGroup {
+  key: string
+  headingMs: number
+  logs: ChoreLog[]
+}
+
+/** Groups day-descending logs into contiguous per-day sections. */
+function groupByDay(logs: ChoreLog[]): DayGroup[] {
+  const groups: DayGroup[] = []
+  for (const log of logs) {
+    const key = dayKey(log.doneAt)
+    const last = groups[groups.length - 1]
+    if (last && last.key === key) {
+      last.logs.push(log)
+    } else {
+      groups.push({ key, headingMs: log.doneAt, logs: [log] })
+    }
+  }
+  return groups
+}
 
 function toLocalInputValue(ms: number): string {
   const d = new Date(ms)
@@ -140,39 +161,52 @@ export function HistoryTab() {
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
-        {logs.map((log) => {
-          const isSelf = log.userId === user.uid
-          const who = isSelf ? myNickname || 'あなた' : partnerNickname || 'パートナー'
-          return (
-            <button
-              key={log.id}
-              type="button"
-              onClick={() => setEditing(log)}
-              className="flex items-center gap-3 rounded-2xl bg-white px-3 py-3 text-left shadow-sm ring-1 ring-black/5 active:bg-neutral-50 dark:bg-neutral-900 dark:ring-white/10 dark:active:bg-neutral-800"
-            >
-              <span
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl"
-                style={{ backgroundColor: categoryChipColor(log.category, isDark) }}
-              >
-                {categoryEmoji(log.category)}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-neutral-900 dark:text-white">
-                  {log.choreName}
-                </p>
-                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-400">
-                  <span
-                    className="inline-block h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: memberColor(isSelf, isDark) }}
-                  />
-                  {who} ・ {formatDateTime(log.doneAt)} ・ {log.minutes}分
-                </p>
-              </div>
-              <span className="shrink-0 text-neutral-300">›</span>
-            </button>
-          )
-        })}
+      <div className="flex flex-col gap-5">
+        {groupByDay(logs).map((group) => (
+          <section key={group.key}>
+            <div className="mb-2 flex items-center gap-3">
+              <h2 className="text-sm font-bold text-neutral-500 dark:text-neutral-400">
+                {formatDayHeading(group.headingMs)}
+              </h2>
+              <span className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
+              <span className="text-xs text-neutral-400">{group.logs.length}件</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {group.logs.map((log) => {
+                const isSelf = log.userId === user.uid
+                const who = isSelf ? myNickname || 'あなた' : partnerNickname || 'パートナー'
+                return (
+                  <button
+                    key={log.id}
+                    type="button"
+                    onClick={() => setEditing(log)}
+                    className="flex items-center gap-3 rounded-2xl bg-white px-3 py-3 text-left shadow-sm ring-1 ring-black/5 active:bg-neutral-50 dark:bg-neutral-900 dark:ring-white/10 dark:active:bg-neutral-800"
+                  >
+                    <span
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl"
+                      style={{ backgroundColor: categoryChipColor(log.category, isDark) }}
+                    >
+                      {categoryEmoji(log.category)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-neutral-900 dark:text-white">
+                        {log.choreName}
+                      </p>
+                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-400">
+                        <span
+                          className="inline-block h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: memberColor(isSelf, isDark) }}
+                        />
+                        {who} ・ {formatTime(log.doneAt)} ・ {log.minutes}分
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-neutral-300">›</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        ))}
       </div>
 
       {editing && (
