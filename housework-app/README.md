@@ -42,10 +42,13 @@
 実 Firebase プロジェクトなしで、Local Emulator を使って全機能をすぐ試せます
 （`.env.development` にエミュレータ用のダミー設定が入っています）。
 
+> 前提: **Node.js**（[nodejs.org](https://nodejs.org/)）と、エミュレータ実行用の **Java**（JDK 11以上）が必要です。
+> `firebase-tools` は各コマンドが `npx` で自動取得するので個別インストールは不要ですが、
+> 毎回の取得を省いて速くしたい場合は `npm install -g firebase-tools` を一度実行しておくと快適です。
+
 ```bash
 cd housework-app
 npm install
-npm install -g firebase-tools   # 初回のみ
 
 # ターミナル1: エミュレータ（Auth + Firestore）
 npm run emulators
@@ -66,7 +69,6 @@ npm run dev
 ```bash
 cd housework-app
 npm install
-npm install -g firebase-tools   # 初回のみ
 
 # ① 対話式セットアップ:
 #    Firebase ログイン → プロジェクト選択/作成 → Web アプリ登録

@@ -8,9 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "emulators": "firebase emulators:start --project demo-housework-app --only auth,firestore",
+    "emulators": "npx --yes firebase-tools emulators:start --project demo-housework-app --only auth,firestore",
     "firebase:setup": "node scripts/firebase-setup.mjs",
-    "deploy": "npm run build && npx --yes firebase deploy --only hosting,firestore:rules"
+    "deploy": "npm run build && npx --yes firebase-tools deploy --only hosting,firestore:rules"
   },
   "dependencies": {
     "firebase": "^12.16.0",

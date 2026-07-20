@@ -30,15 +30,26 @@ const c = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
 }
 
-/** firebase CLI をローカル or グローバルどちらでも呼べるように解決する。 */
-function firebaseArgs(args) {
-  return ['--yes', 'firebase', ...args]
-}
-
+/**
+ * Firebase CLI（firebase-tools）を呼び出す。
+ *
+ * - パッケージ名は必ず `firebase-tools`。`firebase` はクライアントSDKで、
+ *   このプロジェクトの依存に入っているため `npx firebase` だとそちらを
+ *   拾って CLI が見つからず失敗する（グローバル未インストール環境で顕在化）。
+ * - `--yes` を付けているので、グローバル/ローカルに未インストールでも npx が
+ *   一時取得して実行する（インストール済みならそれを使う）。
+ * - Windows で `spawnSync('npx', …)` は `npx.cmd` を解決できないことがあるため、
+ *   `shell: true` + コマンド文字列で実行する（スペースを含む引数はクォート）。
+ */
 function runFirebase(args, { capture = false } = {}) {
-  const res = spawnSync('npx', firebaseArgs(args), {
+  const quoted = args
+    .map((a) => (/[\s"']/.test(a) ? JSON.stringify(a) : a))
+    .join(' ')
+  const command = `npx --yes firebase-tools ${quoted}`
+  const res = spawnSync(command, {
     cwd: APP_DIR,
     encoding: 'utf8',
+    shell: true,
     stdio: capture ? ['inherit', 'pipe', 'inherit'] : 'inherit',
   })
   return res
@@ -55,11 +66,15 @@ async function main() {
 
   console.log(c.bold('\n🏠 家事分担アプリ — Firebase セットアップ\n'))
 
-  // 1. CLI 確認
+  // 1. CLI 確認（未インストールでも npx が取得するので、初回は少し時間がかかる）
+  console.log(c.dim('firebase-tools を確認中…（初回は取得に少し時間がかかります）'))
   const version = runFirebase(['--version'], { capture: true })
   if (version.status !== 0) {
     rl.close()
-    fail('firebase-tools が見つかりません。`npm install -g firebase-tools` を実行してください。')
+    fail(
+      'firebase-tools を起動できませんでした。\n' +
+        '  ネット接続を確認するか、`npm install -g firebase-tools` で事前インストールしてください。',
+    )
   }
   console.log(c.dim(`firebase-tools ${String(version.stdout).trim()}`))
 
