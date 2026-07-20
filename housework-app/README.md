@@ -90,11 +90,32 @@ npm run deploy
 ```
 
 表示された公開 URL をスマホのブラウザで開き、メニューから「ホーム画面に追加」すれば
-アプリのように使えます（PWA）。以降、コードを更新したら `npm run deploy` を叩くだけで反映されます。
+アプリのように使えます（PWA）。
 
 > Firebase Hosting 以外（Cloudflare Pages・GitHub Pages 等）に置くこともできます。その場合は
 > `npm run build` で生成される `dist/` を配信し、ルールだけ `firebase deploy --only firestore:rules`
 > でデプロイしてください。
+
+## コードを更新したら自動で公開する（GitHub Actions）
+
+`npm run deploy` を毎回手で叩かなくても、**`main` にマージするだけ**で自動的にビルド・公開されるように
+できます。`.github/workflows/deploy-housework-app.yml` がその設定で、`housework-app/` 配下の変更が
+あったときだけ動きます。
+
+有効にするには、GitHub リポジトリに Secret を2つ登録するだけです。`npm run firebase:setup` の
+最後で「GitHub Actions での自動デプロイを設定しますか？」と聞かれたときに `y` と答えると、
+必要な値（プロジェクトIDとCIトークン）が画面に表示されます。それを
+
+**Settings → Secrets and variables → Actions → New repository secret** で登録してください。
+
+| Secret 名 | 値 |
+|---|---|
+| `HOUSEWORK_FIREBASE_PROJECT_ID` | Firebase プロジェクト ID |
+| `HOUSEWORK_FIREBASE_TOKEN` | CI 用トークン（`npx firebase-tools login:ci` でいつでも再発行可） |
+
+登録後は、`housework-app/` に変更を加えて `main` にマージ（または push）するたびに、
+GitHub Actions が自動でビルド・Hosting へのデプロイ・Firestore ルールの反映まで行います。
+`npm run deploy` によるその場での手動公開も引き続き使えます。
 
 ### 主な npm スクリプト
 
@@ -106,6 +127,7 @@ npm run deploy
 | `npm run deploy` | ビルドして Hosting + ルールを一括デプロイ |
 | `npm run build` | 型チェック + 本番ビルド（`dist/`） |
 | `npm run preview` | ビルド結果をローカルプレビュー |
+| `npm run ci:env` / `ci:deploy` | GitHub Actions が使う非対話コマンド（手動実行は通常不要） |
 
 ## データモデル（Firestore）
 

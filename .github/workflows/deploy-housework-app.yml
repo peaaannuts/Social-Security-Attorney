@@ -1,0 +1,62 @@
+name: Deploy housework-app to Firebase Hosting
+
+on:
+  push:
+    # main へのマージ、または開発ブランチへの push で自動デプロイ。
+    # housework-app/ 以外の変更（社労士アプリ側）では発火しない。
+    branches: [main, claude/housework-sharing-app-hz8goj]
+    paths:
+      - "housework-app/**"
+      - ".github/workflows/deploy-housework-app.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-housework-app
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: housework-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: housework-app/package-lock.json
+
+      - run: npm ci
+
+      # secrets が未設定なら（= まだ npm run firebase:setup を実行していない）、
+      # ここでスキップして分かりやすいメッセージだけ出す。
+      - name: Check Firebase secrets
+        id: check
+        run: |
+          if [ -z "${{ secrets.HOUSEWORK_FIREBASE_PROJECT_ID }}" ] || [ -z "${{ secrets.HOUSEWORK_FIREBASE_TOKEN }}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::HOUSEWORK_FIREBASE_PROJECT_ID / HOUSEWORK_FIREBASE_TOKEN が未設定のため、デプロイをスキップしました。README の「自動デプロイ（GitHub Actions）」を参照してください。"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate .env.production.local from Firebase project
+        if: steps.check.outputs.configured == 'true'
+        run: npm run ci:env
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.HOUSEWORK_FIREBASE_PROJECT_ID }}
+          FIREBASE_TOKEN: ${{ secrets.HOUSEWORK_FIREBASE_TOKEN }}
+
+      - name: Build
+        if: steps.check.outputs.configured == 'true'
+        run: npm run build
+
+      - name: Deploy to Firebase Hosting + Firestore rules
+        if: steps.check.outputs.configured == 'true'
+        run: npm run ci:deploy
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.HOUSEWORK_FIREBASE_PROJECT_ID }}
+          FIREBASE_TOKEN: ${{ secrets.HOUSEWORK_FIREBASE_TOKEN }}

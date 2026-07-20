@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "emulators": "npx --yes firebase-tools emulators:start --project demo-housework-app --only auth,firestore",
     "firebase:setup": "node scripts/firebase-setup.mjs",
-    "deploy": "npm run build && npx --yes firebase-tools deploy --only hosting,firestore:rules"
+    "deploy": "npm run build && npx --yes firebase-tools deploy --only hosting,firestore:rules",
+    "ci:env": "node scripts/ci-write-env.mjs",
+    "ci:deploy": "npx --yes firebase-tools deploy --only hosting,firestore:rules --project \"$FIREBASE_PROJECT_ID\" --token \"$FIREBASE_TOKEN\""
   },
   "dependencies": {
     "firebase": "^12.16.0",

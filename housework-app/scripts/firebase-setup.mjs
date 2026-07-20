@@ -8,19 +8,22 @@
  *   3. Web アプリを登録（無ければ作成）し、その SDK 設定を取得
  *   4. .env.production.local を自動生成
  *   5. Firestore ルールをデプロイ
- *   6. 残る手作業（Auth プロバイダの有効化）を案内
+ *   6. 希望すれば GitHub Actions 自動デプロイ用の CI トークンを発行
+ *   7. 残る手作業（Auth プロバイダの有効化）を案内
  *
  * これで、ユーザーが手で Firebase コンソールの設定値をコピーして
  * .env に貼り付ける…という一番面倒な工程が無くなる。
  */
-import { spawnSync } from 'node:child_process'
 import { createInterface } from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { runFirebase as runFirebaseRaw, getSdkConfig as getSdkConfigRaw, sdkConfigToEnvBody } from './firebase-cli.mjs'
 
 const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
+const runFirebase = (args, opts) => runFirebaseRaw(args, { ...opts, cwd: APP_DIR })
+const getSdkConfig = (projectId) => getSdkConfigRaw(projectId, { cwd: APP_DIR })
 
 const c = {
   bold: (s) => `\x1b[1m${s}\x1b[0m`,
@@ -28,31 +31,6 @@ const c = {
   yellow: (s) => `\x1b[33m${s}\x1b[0m`,
   red: (s) => `\x1b[31m${s}\x1b[0m`,
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
-}
-
-/**
- * Firebase CLI（firebase-tools）を呼び出す。
- *
- * - パッケージ名は必ず `firebase-tools`。`firebase` はクライアントSDKで、
- *   このプロジェクトの依存に入っているため `npx firebase` だとそちらを
- *   拾って CLI が見つからず失敗する（グローバル未インストール環境で顕在化）。
- * - `--yes` を付けているので、グローバル/ローカルに未インストールでも npx が
- *   一時取得して実行する（インストール済みならそれを使う）。
- * - Windows で `spawnSync('npx', …)` は `npx.cmd` を解決できないことがあるため、
- *   `shell: true` + コマンド文字列で実行する（スペースを含む引数はクォート）。
- */
-function runFirebase(args, { capture = false } = {}) {
-  const quoted = args
-    .map((a) => (/[\s"']/.test(a) ? JSON.stringify(a) : a))
-    .join(' ')
-  const command = `npx --yes firebase-tools ${quoted}`
-  const res = spawnSync(command, {
-    cwd: APP_DIR,
-    encoding: 'utf8',
-    shell: true,
-    stdio: capture ? ['inherit', 'pipe', 'inherit'] : 'inherit',
-  })
-  return res
 }
 
 function fail(message) {
@@ -135,18 +113,12 @@ async function main() {
 
   // 5. .env.production.local を書き出し
   const envPath = join(APP_DIR, '.env.production.local')
-  const envBody = [
-    '# `npm run firebase:setup` により自動生成。手で編集しても構いません。',
-    `VITE_FIREBASE_API_KEY=${sdkConfig.apiKey ?? ''}`,
-    `VITE_FIREBASE_AUTH_DOMAIN=${sdkConfig.authDomain ?? ''}`,
-    `VITE_FIREBASE_PROJECT_ID=${sdkConfig.projectId ?? projectId}`,
-    `VITE_FIREBASE_STORAGE_BUCKET=${sdkConfig.storageBucket ?? ''}`,
-    `VITE_FIREBASE_MESSAGING_SENDER_ID=${sdkConfig.messagingSenderId ?? ''}`,
-    `VITE_FIREBASE_APP_ID=${sdkConfig.appId ?? ''}`,
-    'VITE_USE_EMULATOR=false',
-    '',
-  ].join('\n')
-  writeFileSync(envPath, envBody)
+  writeFileSync(
+    envPath,
+    sdkConfigToEnvBody(sdkConfig, projectId, {
+      header: '# `npm run firebase:setup` により自動生成。手で編集しても構いません。',
+    }),
+  )
   console.log(c.green(`  ✓ .env.production.local を生成しました`))
 
   // 6. Firestore ルールをデプロイ
@@ -163,6 +135,29 @@ async function main() {
     console.log(c.green('  ✓ ルールをデプロイしました'))
   }
 
+  // 7. GitHub Actions 自動デプロイ（任意）
+  console.log(c.bold('\n▸ GitHub Actions での自動デプロイ（任意）'))
+  console.log(c.dim('  main への push で自動的にビルド・公開されるようになります。'))
+  const wantCi = (await ask('  設定しますか？ [y/N]: ')).trim().toLowerCase()
+  let ciToken = null
+  if (wantCi === 'y' || wantCi === 'yes') {
+    console.log(c.dim('\n  CI 用トークンを発行します。ブラウザで認証してください…'))
+    const ciLogin = runFirebase(['login:ci'], { capture: true })
+    if (ciLogin.status === 0 && ciLogin.stdout) {
+      const lines = String(ciLogin.stdout).trim().split('\n').filter(Boolean)
+      const last = lines[lines.length - 1]?.trim()
+      if (last) ciToken = last
+    }
+    if (!ciToken) {
+      console.log(
+        c.yellow(
+          '  ⚠ トークン発行に失敗、または出力から読み取れませんでした。\n' +
+            '    後で手動で `npx firebase-tools login:ci` を実行して設定できます。',
+        ),
+      )
+    }
+  }
+
   rl.close()
 
   // 完了案内 — 残る手作業は「Auth プロバイダの有効化」1つだけ
@@ -174,22 +169,28 @@ async function main() {
   console.log('       - 「メール/パスワード」を有効化（任意・機種変更時のデータ引き継ぎ用）')
   console.log('  2) Firestore Database を未作成なら作成:')
   console.log(c.dim(`     ${consoleUrl}/firestore`))
-  console.log(c.bold('\n  そのあと、公開はこの1コマンドだけ:\n'))
-  console.log(c.green('     npm run deploy\n'))
-}
 
-/** `firebase apps:sdkconfig WEB --json` を叩いて sdkConfig を返す（無ければ null）。 */
-function getSdkConfig(projectId) {
-  const res = runFirebase(['apps:sdkconfig', 'WEB', '--project', projectId, '--json'], {
-    capture: true,
-  })
-  if (res.status !== 0 || !res.stdout) return null
-  try {
-    const parsed = JSON.parse(res.stdout)
-    const config = parsed?.result?.sdkConfig
-    return config && config.apiKey ? config : null
-  } catch {
-    return null
+  if (ciToken) {
+    console.log(c.bold('\n  3) GitHub リポジトリに Secrets を2つ追加してください:'))
+    console.log(c.dim('     Settings → Secrets and variables → Actions → New repository secret\n'))
+    console.log(`     ${c.bold('HOUSEWORK_FIREBASE_PROJECT_ID')} = ${projectId}`)
+    console.log(`     ${c.bold('HOUSEWORK_FIREBASE_TOKEN')} = ${ciToken}`)
+    console.log(
+      c.dim(
+        '\n  これで housework-app/ の変更を main にマージするだけで自動デプロイされます\n' +
+          '  （手動で公開したい場合は npm run deploy も引き続き使えます）。',
+      ),
+    )
+  } else {
+    console.log(c.bold('\n  そのあと、公開はこの1コマンドだけ:\n'))
+    console.log(c.green('     npm run deploy\n'))
+    console.log(
+      c.dim(
+        '  ※ GitHub Actions での自動デプロイは後からでも設定できます。\n' +
+          '     `npx firebase-tools login:ci` でトークンを発行し、README の\n' +
+          '     「自動デプロイ（GitHub Actions）」を参照してください。',
+      ),
+    )
   }
 }
 
