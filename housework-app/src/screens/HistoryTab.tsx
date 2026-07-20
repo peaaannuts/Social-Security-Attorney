@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useHousehold } from '../contexts/HouseholdContext'
 import { useRecentLogs } from '../hooks/useLogs'
-import { deleteLog, updateLogTime } from '../lib/logService'
+import { deleteLog, updateLog } from '../lib/logService'
 import { formatDateTime } from '../lib/date'
 import { memberColor } from '../lib/chartColors'
 import { useIsDark } from '../lib/theme'
@@ -22,10 +22,14 @@ function EditSheet({
 }: {
   log: ChoreLog
   onClose: () => void
-  onSave: (doneAt: number) => void
+  onSave: (patch: { doneAt: number; minutes: number }) => void
   onDelete: () => void
 }) {
   const [value, setValue] = useState(toLocalInputValue(log.doneAt))
+  const [minutes, setMinutes] = useState(String(log.minutes))
+
+  const minutesNum = Number(minutes)
+  const minutesValid = minutes.trim() !== '' && Number.isFinite(minutesNum) && minutesNum > 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-black/40" onClick={onClose}>
@@ -45,15 +49,27 @@ function EditSheet({
             className="rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
           />
         </label>
+        <label className="mb-4 flex flex-col gap-1 text-sm text-neutral-600 dark:text-neutral-300">
+          かかった時間（分）
+          <input
+            type="number"
+            min={1}
+            inputMode="numeric"
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+            className="rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+          />
+        </label>
         <div className="flex gap-2">
           <button
             type="button"
+            disabled={!minutesValid}
             onClick={() => {
               const ms = new Date(value).getTime()
-              if (!Number.isNaN(ms)) onSave(ms)
+              if (!Number.isNaN(ms) && minutesValid) onSave({ doneAt: ms, minutes: minutesNum })
               onClose()
             }}
-            className="flex-1 rounded-xl bg-blue-600 py-3 font-semibold text-white active:bg-blue-700"
+            className="flex-1 rounded-xl bg-blue-600 py-3 font-semibold text-white disabled:opacity-50 active:bg-blue-700"
           >
             保存
           </button>
@@ -112,7 +128,7 @@ export function HistoryTab() {
                 <div>
                   <p className="font-medium text-neutral-900 dark:text-white">{log.choreName}</p>
                   <p className="text-xs text-neutral-400">
-                    {who} ・ {formatDateTime(log.doneAt)}
+                    {who} ・ {formatDateTime(log.doneAt)} ・ {log.minutes}分
                   </p>
                 </div>
               </div>
@@ -126,7 +142,9 @@ export function HistoryTab() {
         <EditSheet
           log={editing}
           onClose={() => setEditing(null)}
-          onSave={(doneAt) => updateLogTime(household.id, editing.id, doneAt)}
+          onSave={(patch) =>
+            updateLog(household.id, editing.id, { ...patch, loadFactor: editing.loadFactor })
+          }
           onDelete={() => deleteLog(household.id, editing.id)}
         />
       )}

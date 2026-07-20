@@ -36,6 +36,19 @@ export async function deleteLog(householdId: string, logId: string) {
   await deleteDoc(doc(db, 'households', householdId, 'logs', logId))
 }
 
-export async function updateLogTime(householdId: string, logId: string, doneAt: number) {
-  await updateDoc(doc(db, 'households', householdId, 'logs', logId), { doneAt })
+/**
+ * Edits a past record's time-taken and/or timestamp. loadFactor is left as
+ * originally recorded (it reflects the chore's "大変さ", not this one
+ * instance), so score is recomputed from the edited minutes alone.
+ */
+export async function updateLog(
+  householdId: string,
+  logId: string,
+  patch: { doneAt: number; minutes: number; loadFactor: number },
+) {
+  await updateDoc(doc(db, 'households', householdId, 'logs', logId), {
+    doneAt: patch.doneAt,
+    minutes: patch.minutes,
+    score: patch.minutes * patch.loadFactor,
+  })
 }
