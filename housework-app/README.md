@@ -37,75 +37,73 @@
 
 サーバー処理（週次集計・通知など）は要件定義書どおり v2 スコープとし、Cloud Functions は未導入です。
 
-## セットアップ
+## まず動かしてみる（Firebase 不要・30秒）
 
-### 1. 依存関係のインストール
+実 Firebase プロジェクトなしで、Local Emulator を使って全機能をすぐ試せます
+（`.env.development` にエミュレータ用のダミー設定が入っています）。
 
 ```bash
 cd housework-app
 npm install
-```
-
-### 2. Firebase プロジェクトの準備
-
-本番で使うには Firebase プロジェクトが必要です。
-
-1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成
-2. **Authentication** → Sign-in method で「匿名」と「メール/パスワード」を有効化
-3. **Firestore Database** を作成（本番モード）
-4. プロジェクト設定 → 全般 → 「アプリを追加」で Web アプリを登録し、SDK 設定を取得
-5. `.env.example` を `.env.production.local`（または `.env.local`）としてコピーし、取得した値を設定
-
-```bash
-cp .env.example .env.production.local
-```
-
-```
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
-VITE_USE_EMULATOR=false
-```
-
-6. セキュリティルールをデプロイ（`firebase-tools` が必要: `npm install -g firebase-tools`）
-
-```bash
-firebase login
-firebase deploy --only firestore:rules --project <your-project-id>
-```
-
-### 3. 開発サーバーの起動
-
-`.env.development` に、Firebase Local Emulator Suite 用のダミー設定（`demo-` プレフィックスの
-プロジェクトID）がすでに入っているため、**実プロジェクトなしでもすぐに動かせます**。
-
-```bash
-# ターミナル1: Firebase エミュレータ（Auth + Firestore）
 npm install -g firebase-tools   # 初回のみ
-firebase emulators:start --project demo-housework-app --only auth,firestore
+
+# ターミナル1: エミュレータ（Auth + Firestore）
+npm run emulators
 
 # ターミナル2: 開発サーバー
 npm run dev
 ```
 
-`http://localhost:5173` を開けば、実プロジェクト不要でフル機能（世帯作成・招待・記録・
-ダッシュボード・オフライン動作）を試せます。エミュレータUIは `http://127.0.0.1:4000`。
+`http://localhost:5173` を開けば、世帯作成・招待・記録・ダッシュボード・オフライン動作まで
+一通り動きます。2人分を見るときは、もう1つのブラウザ（またはシークレットウィンドウ）で
+同じ URL を開くと別ユーザーとして扱われます。エミュレータ UI は `http://127.0.0.1:4000`。
 
-実 Firebase プロジェクトに接続して開発する場合は `.env.local` を作成し、`.env.production.local`
-と同じ値に `VITE_USE_EMULATOR=false` を加えて設定してください。
+## 本番公開（2人のスマホで使う）
 
-### 4. ビルド・デプロイ
+2人が別々のスマホで同期して使うには、自分の Firebase プロジェクトが必要です（無料枠で収まります）。
+手作業でコンソールの設定値をコピペする工程は、セットアップスクリプトが肩代わりします。
 
 ```bash
-npm run build      # 型チェック + 本番ビルド（dist/）
-npm run preview     # ビルド結果をローカルプレビュー
+cd housework-app
+npm install
+npm install -g firebase-tools   # 初回のみ
+
+# ① 対話式セットアップ:
+#    Firebase ログイン → プロジェクト選択/作成 → Web アプリ登録
+#    → .env.production.local を自動生成 → ルールをデプロイ、まで自動
+npm run firebase:setup
 ```
 
-`dist/` は Firebase Hosting・Cloudflare Pages・GitHub Pages など任意の静的ホスティングに配信できます。
-PWA なのでスマートフォンのブラウザから「ホーム画面に追加」するとアプリのように使えます。
+スクリプトの最後に案内される**残り1手順だけ**をコンソールで実施します（各1トグル）:
+
+- **Authentication → Sign-in method** で「**匿名**」を有効化（必須）
+  - 「メール/パスワード」も有効化すると、機種変更時のデータ引き継ぎ（設定画面のメール連携）が使えます（任意）
+- **Firestore Database** が未作成なら作成
+
+あとは公開まで**この1コマンド**だけ（ビルド → Hosting とルールを一括デプロイ）:
+
+```bash
+# ② ビルドして Firebase Hosting に公開
+npm run deploy
+```
+
+表示された公開 URL をスマホのブラウザで開き、メニューから「ホーム画面に追加」すれば
+アプリのように使えます（PWA）。以降、コードを更新したら `npm run deploy` を叩くだけで反映されます。
+
+> Firebase Hosting 以外（Cloudflare Pages・GitHub Pages 等）に置くこともできます。その場合は
+> `npm run build` で生成される `dist/` を配信し、ルールだけ `firebase deploy --only firestore:rules`
+> でデプロイしてください。
+
+### 主な npm スクリプト
+
+| コマンド | 内容 |
+|---|---|
+| `npm run dev` | 開発サーバー起動 |
+| `npm run emulators` | Firebase エミュレータ（Auth + Firestore）起動 |
+| `npm run firebase:setup` | 対話式の初回セットアップ（プロジェクト作成〜`.env` 生成〜ルール配信） |
+| `npm run deploy` | ビルドして Hosting + ルールを一括デプロイ |
+| `npm run build` | 型チェック + 本番ビルド（`dist/`） |
+| `npm run preview` | ビルド結果をローカルプレビュー |
 
 ## データモデル（Firestore）
 
