@@ -3,24 +3,33 @@ import { useAuth } from '../contexts/AuthContext'
 import { useHousehold } from '../contexts/HouseholdContext'
 import { useToast } from '../contexts/ToastContext'
 import { useChores } from '../hooks/useChores'
+import { useLongPress } from '../hooks/useLongPress'
 import { categoryChipColor, categoryEmoji } from '../lib/categoryStyle'
+import { formatDayHeading, formatTime } from '../lib/date'
 import { addLog, deleteLog } from '../lib/logService'
 import { useIsDark } from '../lib/theme'
 import type { Chore } from '../types'
+import { QuickTimeSheet } from './home/QuickTimeSheet'
 
 function ChoreButton({
   chore,
   isDark,
   onTap,
+  onLongPress,
 }: {
   chore: Chore
   isDark: boolean
   onTap: (chore: Chore) => void
+  onLongPress: (chore: Chore) => void
 }) {
+  const press = useLongPress(
+    () => onTap(chore),
+    () => onLongPress(chore),
+  )
   return (
     <button
       type="button"
-      onClick={() => onTap(chore)}
+      {...press}
       className="flex flex-col items-start gap-2 rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-black/5 transition active:scale-[0.97] dark:bg-neutral-900 dark:ring-white/10"
     >
       <span
@@ -37,15 +46,52 @@ function ChoreButton({
   )
 }
 
+function AllChoresRow({
+  chore,
+  isDark,
+  onTap,
+  onLongPress,
+}: {
+  chore: Chore
+  isDark: boolean
+  onTap: (chore: Chore) => void
+  onLongPress: (chore: Chore) => void
+}) {
+  const press = useLongPress(
+    () => onTap(chore),
+    () => onLongPress(chore),
+  )
+  return (
+    <button
+      type="button"
+      {...press}
+      className="flex items-center gap-3 rounded-2xl bg-neutral-50 px-3 py-3 text-left active:bg-neutral-100 dark:bg-neutral-800 dark:active:bg-neutral-700"
+    >
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xl"
+        style={{ backgroundColor: categoryChipColor(chore.category, isDark) }}
+      >
+        {categoryEmoji(chore.category)}
+      </span>
+      <span className="min-w-0 flex-1 break-words font-medium text-neutral-900 dark:text-white">
+        {chore.name}
+      </span>
+      <span className="shrink-0 text-xs text-neutral-400">{chore.minutes}分</span>
+    </button>
+  )
+}
+
 function AllChoresSheet({
   chores,
   isDark,
   onSelect,
+  onLongPress,
   onClose,
 }: {
   chores: Chore[]
   isDark: boolean
   onSelect: (chore: Chore) => void
+  onLongPress: (chore: Chore) => void
   onClose: () => void
 }) {
   return (
@@ -63,26 +109,19 @@ function AllChoresSheet({
         </div>
         <div className="flex flex-col gap-2">
           {chores.map((chore) => (
-            <button
+            <AllChoresRow
               key={chore.id}
-              type="button"
-              onClick={() => {
-                onSelect(chore)
+              chore={chore}
+              isDark={isDark}
+              onTap={(c) => {
+                onSelect(c)
                 onClose()
               }}
-              className="flex items-center gap-3 rounded-2xl bg-neutral-50 px-3 py-3 text-left active:bg-neutral-100 dark:bg-neutral-800 dark:active:bg-neutral-700"
-            >
-              <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xl"
-                style={{ backgroundColor: categoryChipColor(chore.category, isDark) }}
-              >
-                {categoryEmoji(chore.category)}
-              </span>
-              <span className="min-w-0 flex-1 break-words font-medium text-neutral-900 dark:text-white">
-                {chore.name}
-              </span>
-              <span className="shrink-0 text-xs text-neutral-400">{chore.minutes}分</span>
-            </button>
+              onLongPress={(c) => {
+                onLongPress(c)
+                onClose()
+              }}
+            />
           ))}
           {chores.length === 0 && (
             <p className="py-6 text-center text-sm text-neutral-400">
@@ -102,20 +141,31 @@ export function HomeTab() {
   const { show } = useToast()
   const isDark = useIsDark()
   const [showAll, setShowAll] = useState(false)
+  const [pickingTimeFor, setPickingTimeFor] = useState<Chore | null>(null)
 
   const favorites = chores.filter((c) => c.isFavorite)
 
-  function handleTap(chore: Chore) {
+  function recordAt(chore: Chore, doneAt: number) {
     if (!household || !user) return
-    const logId = addLog(household.id, chore, user.uid)
-    show(`「${chore.name}」を記録しました`, () => {
+    const logId = addLog(household.id, chore, user.uid, doneAt)
+    const isNow = Math.abs(Date.now() - doneAt) < 5000
+    const whenLabel = isNow ? '' : `（${formatDayHeading(doneAt)} ${formatTime(doneAt)}）`
+    show(`「${chore.name}」${whenLabel}を記録しました`, () => {
       deleteLog(household.id, logId)
     })
   }
 
+  function handleTap(chore: Chore) {
+    recordAt(chore, Date.now())
+  }
+
+  function handleLongPress(chore: Chore) {
+    setPickingTimeFor(chore)
+  }
+
   return (
     <div className="min-h-full px-4 pb-28 pt-6">
-      <div className="mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-500 p-5 text-white shadow-md shadow-blue-500/20">
+      <div className="mb-3 overflow-hidden rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-500 p-5 text-white shadow-md shadow-blue-500/20">
         <p className="text-sm text-white/80">こんにちは 👋</p>
         <h1 className="mt-0.5 text-2xl font-bold">
           {myNickname ? `${myNickname}さん` : 'ホーム'}
@@ -123,9 +173,19 @@ export function HomeTab() {
         <p className="mt-2 text-sm text-white/85">やった家事をタップして記録しよう</p>
       </div>
 
+      <p className="mb-4 text-xs text-neutral-400">
+        🕐 長押しすると、さっき・今朝・昨日など過去の時刻でも記録できます
+      </p>
+
       <div className="grid grid-cols-2 gap-3">
         {favorites.map((chore) => (
-          <ChoreButton key={chore.id} chore={chore} isDark={isDark} onTap={handleTap} />
+          <ChoreButton
+            key={chore.id}
+            chore={chore}
+            isDark={isDark}
+            onTap={handleTap}
+            onLongPress={handleLongPress}
+          />
         ))}
       </div>
 
@@ -153,7 +213,19 @@ export function HomeTab() {
           chores={chores}
           isDark={isDark}
           onSelect={handleTap}
+          onLongPress={handleLongPress}
           onClose={() => setShowAll(false)}
+        />
+      )}
+
+      {pickingTimeFor && (
+        <QuickTimeSheet
+          chore={pickingTimeFor}
+          onPick={(doneAt) => {
+            recordAt(pickingTimeFor, doneAt)
+            setPickingTimeFor(null)
+          }}
+          onClose={() => setPickingTimeFor(null)}
         />
       )}
     </div>

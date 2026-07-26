@@ -74,3 +74,33 @@ export function formatDayHeading(ms: number): string {
   const weekday = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
   return `${d.getMonth() + 1}/${d.getDate()}(${weekday})`
 }
+
+export function minutesAgo(m: number, now: Date = new Date()): number {
+  return now.getTime() - m * 60_000
+}
+
+export function hoursAgo(h: number, now: Date = new Date()): number {
+  return now.getTime() - h * 3_600_000
+}
+
+/** Today at the given local hour:minute. */
+export function todayAt(hour: number, minute = 0, now: Date = new Date()): number {
+  const d = new Date(now)
+  d.setHours(hour, minute, 0, 0)
+  return d.getTime()
+}
+
+/** Yesterday at the given local hour:minute. */
+export function yesterdayAt(hour: number, minute = 0, now: Date = new Date()): number {
+  const d = new Date(now)
+  d.setDate(d.getDate() - 1)
+  d.setHours(hour, minute, 0, 0)
+  return d.getTime()
+}
+
+/** Value for a `<input type="datetime-local">`, in local time. */
+export function toLocalInputValue(ms: number): string {
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}

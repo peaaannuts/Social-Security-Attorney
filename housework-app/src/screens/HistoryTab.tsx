@@ -5,7 +5,7 @@ import { useAllLogs, useRecentLogs } from '../hooks/useLogs'
 import { deleteLog, updateLog } from '../lib/logService'
 import { buildLogsCsv, downloadCsv } from '../lib/csvExport'
 import { categoryChipColor, categoryEmoji } from '../lib/categoryStyle'
-import { dayKey, formatDayHeading, formatTime } from '../lib/date'
+import { dayKey, formatDayHeading, formatTime, toLocalInputValue } from '../lib/date'
 import { memberColor } from '../lib/chartColors'
 import { useIsDark } from '../lib/theme'
 import type { ChoreLog } from '../types'
@@ -29,12 +29,6 @@ function groupByDay(logs: ChoreLog[]): DayGroup[] {
     }
   }
   return groups
-}
-
-function toLocalInputValue(ms: number): string {
-  const d = new Date(ms)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function EditSheet({
