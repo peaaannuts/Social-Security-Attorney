@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useHousehold } from '../contexts/HouseholdContext'
+import { useChores } from '../hooks/useChores'
 import { useAllLogs, useRecentLogs } from '../hooks/useLogs'
 import { deleteLog, updateLog } from '../lib/logService'
 import { buildLogsCsv, downloadCsv } from '../lib/csvExport'
@@ -8,7 +9,7 @@ import { categoryChipColor, categoryEmoji } from '../lib/categoryStyle'
 import { dayKey, formatDayHeading, formatTime, toLocalInputValue } from '../lib/date'
 import { memberColor } from '../lib/chartColors'
 import { useIsDark } from '../lib/theme'
-import type { ChoreLog } from '../types'
+import type { Chore, ChoreLog } from '../types'
 
 interface DayGroup {
   key: string
@@ -31,19 +32,51 @@ function groupByDay(logs: ChoreLog[]): DayGroup[] {
   return groups
 }
 
+interface LogEditPatch {
+  doneAt: number
+  minutes: number
+  choreId: string
+  choreName: string
+  category: Chore['category']
+  loadFactor: number
+}
+
 function EditSheet({
   log,
+  chores,
   onClose,
   onSave,
   onDelete,
 }: {
   log: ChoreLog
+  chores: Chore[]
   onClose: () => void
-  onSave: (patch: { doneAt: number; minutes: number }) => void
+  onSave: (patch: LogEditPatch) => void
   onDelete: () => void
 }) {
   const [value, setValue] = useState(toLocalInputValue(log.doneAt))
   const [minutes, setMinutes] = useState(String(log.minutes))
+  const [choreId, setChoreId] = useState(log.choreId)
+
+  // The chore recorded on this log may since have been deleted from the
+  // household's chore list — keep it selectable so the <select> always has
+  // a matching option even if it's no longer in `chores`.
+  const options = chores.some((c) => c.id === log.choreId)
+    ? chores
+    : [
+        {
+          id: log.choreId,
+          name: log.choreName,
+          category: log.category,
+          minutes: log.minutes,
+          loadFactor: log.loadFactor,
+          isFavorite: false,
+          order: -1,
+          createdAt: 0,
+        } as Chore,
+        ...chores,
+      ]
+  const selected = options.find((c) => c.id === choreId) ?? options[0]
 
   const minutesNum = Number(minutes)
   const minutesValid = minutes.trim() !== '' && Number.isFinite(minutesNum) && minutesNum > 0
@@ -57,6 +90,24 @@ function EditSheet({
         <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">
           {log.choreName}
         </h3>
+        <label className="mb-4 flex flex-col gap-1 text-sm text-neutral-600 dark:text-neutral-300">
+          家事
+          <select
+            value={choreId}
+            onChange={(e) => {
+              const next = options.find((c) => c.id === e.target.value)
+              setChoreId(e.target.value)
+              if (next) setMinutes(String(next.minutes))
+            }}
+            className="rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+          >
+            {options.map((c) => (
+              <option key={c.id} value={c.id}>
+                {categoryEmoji(c.category)} {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="mb-4 flex flex-col gap-1 text-sm text-neutral-600 dark:text-neutral-300">
           記録日時
           <input
@@ -83,7 +134,16 @@ function EditSheet({
             disabled={!minutesValid}
             onClick={() => {
               const ms = new Date(value).getTime()
-              if (!Number.isNaN(ms) && minutesValid) onSave({ doneAt: ms, minutes: minutesNum })
+              if (!Number.isNaN(ms) && minutesValid) {
+                onSave({
+                  doneAt: ms,
+                  minutes: minutesNum,
+                  choreId: selected.id,
+                  choreName: selected.name,
+                  category: selected.category,
+                  loadFactor: selected.loadFactor,
+                })
+              }
               onClose()
             }}
             className="flex-1 rounded-xl bg-blue-600 py-3 font-semibold text-white disabled:opacity-50 active:bg-blue-700"
@@ -112,6 +172,7 @@ export function HistoryTab() {
   const isDark = useIsDark()
   const { logs, loading } = useRecentLogs(household?.id ?? null)
   const { logs: allLogs } = useAllLogs(household?.id ?? null)
+  const { chores } = useChores(household?.id ?? null)
   const [editing, setEditing] = useState<ChoreLog | null>(null)
 
   if (!household || !user) return null
@@ -206,10 +267,9 @@ export function HistoryTab() {
       {editing && (
         <EditSheet
           log={editing}
+          chores={chores}
           onClose={() => setEditing(null)}
-          onSave={(patch) =>
-            updateLog(household.id, editing.id, { ...patch, loadFactor: editing.loadFactor })
-          }
+          onSave={(patch) => updateLog(household.id, editing.id, patch)}
           onDelete={() => deleteLog(household.id, editing.id)}
         />
       )}

@@ -1,6 +1,6 @@
 import { collection, deleteDoc, doc, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from './firebase'
-import type { Chore } from '../types'
+import type { Chore, ChoreCategory } from '../types'
 
 export function logsCollection(householdId: string) {
   return collection(db, 'households', householdId, 'logs')
@@ -37,18 +37,30 @@ export async function deleteLog(householdId: string, logId: string) {
 }
 
 /**
- * Edits a past record's time-taken and/or timestamp. loadFactor is left as
- * originally recorded (it reflects the chore's "大変さ", not this one
- * instance), so score is recomputed from the edited minutes alone.
+ * Edits a past record's time, time-taken, and/or which chore it was
+ * (e.g. correcting a mis-tap). loadFactor comes from whichever chore is
+ * selected at save time, so score is always recomputed from the edited
+ * minutes and that chore's loadFactor.
  */
 export async function updateLog(
   householdId: string,
   logId: string,
-  patch: { doneAt: number; minutes: number; loadFactor: number },
+  patch: {
+    doneAt: number
+    minutes: number
+    choreId: string
+    choreName: string
+    category: ChoreCategory
+    loadFactor: number
+  },
 ) {
   await updateDoc(doc(db, 'households', householdId, 'logs', logId), {
     doneAt: patch.doneAt,
     minutes: patch.minutes,
+    choreId: patch.choreId,
+    choreName: patch.choreName,
+    category: patch.category,
+    loadFactor: patch.loadFactor,
     score: patch.minutes * patch.loadFactor,
   })
 }
