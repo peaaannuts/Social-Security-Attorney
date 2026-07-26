@@ -12,9 +12,10 @@ body {
   margin: 0;
   font-family: system-ui, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
   -webkit-font-smoothing: antialiased;
-  /* Warm, home-like backdrop: a soft sky fading into cream, fixed so it
-     stays put while content scrolls. Replaces the flat cold gray. */
-  background: linear-gradient(180deg, #e9f0ff 0%, #f7f4ef 26%, #f6f3ed 100%);
+  /* Warm, home-like backdrop: unbleached paper fading into a soft tan,
+     fixed so it stays put while content scrolls. No blue undertone — the
+     app's identity color moved from blue/green to terracotta/olive. */
+  background: linear-gradient(180deg, #fdf8ef 0%, #f7efe2 100%);
   background-attachment: fixed;
 }
 

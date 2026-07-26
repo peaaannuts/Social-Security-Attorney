@@ -18,8 +18,8 @@ export default defineConfig({
         name: '家事分担アプリ',
         short_name: '家事分担',
         description: '2人の家事分担を記録して見える化するアプリ',
-        theme_color: '#4f7cff',
-        background_color: '#ffffff',
+        theme_color: '#c2683f',
+        background_color: '#fdf8ef',
         display: 'standalone',
         start_url: '.',
         icons: [

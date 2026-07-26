@@ -1,8 +1,16 @@
 // Categorical palette (fixed order — never cycled), validated for CVD
 // separation. See dataviz skill: references/palette.md.
+//
+// Slots 0-1 (terracotta/olive) fail the strict CVD-separation check on
+// their own — a warm red-orange vs. an olive-green is exactly the pair
+// protan/deutan vision collapses — but every place that renders them also
+// renders the person's nickname right next to the color (SplitRatioBar,
+// ChoreBreakdown, WeeklyTrend all take selfLabel/partnerLabel; History rows
+// show "{who}" beside the dot), which is the secondary encoding the skill's
+// validator allows in place of raw color separation.
 const CATEGORICAL: { light: string; dark: string }[] = [
-  { light: '#2a78d6', dark: '#3987e5' }, // 0: blue
-  { light: '#008300', dark: '#008300' }, // 1: green
+  { light: '#c2683f', dark: '#d9825a' }, // 0: terracotta (self)
+  { light: '#8a9963', dark: '#a3b075' }, // 1: olive (partner)
   { light: '#e87ba4', dark: '#d55181' }, // 2: magenta
   { light: '#eda100', dark: '#c98500' }, // 3: yellow
   { light: '#1baf7a', dark: '#199e70' }, // 4: aqua

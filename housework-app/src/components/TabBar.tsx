@@ -20,7 +20,7 @@ export function TabBar({ active, onChange }: { active: TabKey; onChange: (tab: T
               onClick={() => onChange(tab.key)}
               className={`flex flex-1 flex-col items-center gap-0.5 rounded-2xl py-1.5 text-[11px] font-medium transition ${
                 isActive
-                  ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300'
+                  ? 'bg-[#c2683f]/10 text-[#c2683f] dark:bg-[#c2683f]/20 dark:text-[#e0a075]'
                   : 'text-neutral-400 dark:text-neutral-500'
               }`}
             >

@@ -3,21 +3,29 @@ import { useAuth } from '../contexts/AuthContext'
 import { useHousehold } from '../contexts/HouseholdContext'
 import { useToast } from '../contexts/ToastContext'
 import { useChores } from '../hooks/useChores'
+import { useLogsInRange } from '../hooks/useLogs'
 import { useLongPress } from '../hooks/useLongPress'
 import { categoryChipColor, categoryEmoji } from '../lib/categoryStyle'
-import { formatDayHeading, formatTime } from '../lib/date'
+import { memberColor } from '../lib/chartColors'
+import { formatDayHeading, formatFullDate, formatTime } from '../lib/date'
 import { addLog, deleteLog } from '../lib/logService'
 import { useIsDark } from '../lib/theme'
-import type { Chore } from '../types'
+import type { Chore, ChoreLog } from '../types'
 import { QuickTimeSheet } from './home/QuickTimeSheet'
 
-function ChoreButton({
+function ChoreRow({
   chore,
+  todayLog,
+  isSelf,
+  who,
   isDark,
   onTap,
   onLongPress,
 }: {
   chore: Chore
+  todayLog: ChoreLog | null
+  isSelf: boolean | null
+  who: string | null
   isDark: boolean
   onTap: (chore: Chore) => void
   onLongPress: (chore: Chore) => void
@@ -26,23 +34,107 @@ function ChoreButton({
     () => onTap(chore),
     () => onLongPress(chore),
   )
+  const done = !!todayLog
+  const doneColor = isSelf ? memberColor(true, isDark) : memberColor(false, isDark)
+
   return (
     <button
       type="button"
       {...press}
-      className="flex flex-col items-start gap-2 rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-black/5 transition active:scale-[0.97] dark:bg-neutral-900 dark:ring-white/10"
+      className="flex w-full items-center gap-3 rounded-2xl bg-[#fffdf8] px-3.5 py-3 text-left shadow-[0_1px_6px_rgba(120,88,52,0.05)] ring-1 ring-[#78583414] transition active:scale-[0.985] dark:bg-neutral-900 dark:ring-white/10"
     >
+      {done ? (
+        <span
+          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+          style={{ backgroundColor: doneColor }}
+        >
+          ✓
+        </span>
+      ) : (
+        <span className="h-[26px] w-[26px] shrink-0 rounded-full border-2 border-dashed border-[#78583452] dark:border-neutral-600" />
+      )}
       <span
-        className="flex h-11 w-11 items-center justify-center rounded-xl text-2xl"
+        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl text-lg"
         style={{ backgroundColor: categoryChipColor(chore.category, isDark) }}
       >
         {categoryEmoji(chore.category)}
       </span>
-      <span className="w-full break-words text-[15px] font-semibold leading-snug text-neutral-900 dark:text-white">
-        {chore.name}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium text-[#43382e] dark:text-white">
+          {chore.name}
+        </span>
+        {done && todayLog ? (
+          <span className="mt-0.5 block text-xs text-[#a4907c] dark:text-neutral-400">
+            {who}が {formatTime(todayLog.doneAt)}
+          </span>
+        ) : (
+          <span className="mt-0.5 block text-xs text-[#bfab95] dark:text-neutral-500">
+            めやす {chore.minutes}分
+          </span>
+        )}
       </span>
-      <span className="text-xs text-neutral-400">{chore.minutes}分</span>
+      {done && <span className="shrink-0 text-base">🌿</span>}
     </button>
+  )
+}
+
+function TodaySummaryCard({
+  meCount,
+  youCount,
+  total,
+  selfName,
+  partnerName,
+  isDark,
+  praise,
+}: {
+  meCount: number
+  youCount: number
+  total: number
+  selfName: string
+  partnerName: string
+  isDark: boolean
+  praise: string | null
+}) {
+  const remain = total - meCount - youCount
+  const meColor = memberColor(true, isDark)
+  const youColor = memberColor(false, isDark)
+  const meW = total > 0 ? Math.round((meCount / total) * 100) : 0
+  const youW = total > 0 ? Math.round((youCount / total) * 100) : 0
+
+  return (
+    <div className="mt-4 rounded-[22px] border border-[#78583414] bg-[#fffdf8] p-[18px] pb-4 shadow-[0_2px_14px_rgba(120,88,52,0.08)] dark:border-white/10 dark:bg-neutral-900">
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-bold text-[#6b5a49] dark:text-neutral-200">今日のふたり</span>
+        <span className="text-xs font-medium text-[#a4907c] dark:text-neutral-400">
+          のこり {remain} 件
+        </span>
+      </div>
+      <div className="mt-3 flex h-3.5 overflow-hidden rounded-full bg-[#f1e8db] dark:bg-neutral-800">
+        <div
+          className="transition-[width] duration-300 ease-out"
+          style={{ width: `${meW}%`, backgroundColor: meColor }}
+        />
+        <div
+          className="transition-[width] duration-300 ease-out"
+          style={{ width: `${youW}%`, backgroundColor: youColor }}
+        />
+      </div>
+      <div className="mt-3 flex items-center gap-4">
+        <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-[#6b5a49] dark:text-neutral-300">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: meColor }} />
+          {selfName} {meCount}件
+        </span>
+        <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-[#6b5a49] dark:text-neutral-300">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: youColor }} />
+          {partnerName} {youCount}件
+        </span>
+      </div>
+      {praise && (
+        <p className="mt-3.5 border-t border-dashed border-[#78583428] pt-3 text-xs leading-relaxed text-[#8a7a68] dark:border-white/10 dark:text-neutral-400">
+          {praise}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -136,14 +228,49 @@ function AllChoresSheet({
 
 export function HomeTab() {
   const { user } = useAuth()
-  const { household, myNickname } = useHousehold()
+  const { household, myNickname, partnerUid } = useHousehold()
   const { chores } = useChores(household?.id ?? null)
   const { show } = useToast()
   const isDark = useIsDark()
   const [showAll, setShowAll] = useState(false)
   const [pickingTimeFor, setPickingTimeFor] = useState<Chore | null>(null)
 
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const todayEnd = new Date(todayStart)
+  todayEnd.setDate(todayEnd.getDate() + 1)
+  const { logs: todayLogs } = useLogsInRange(household?.id ?? null, todayStart, todayEnd)
+
   const favorites = chores.filter((c) => c.isFavorite)
+  const selfName = myNickname || 'あなた'
+  const partnerName = (partnerUid ? household?.nicknames?.[partnerUid] : undefined) || 'パートナー'
+
+  // Most recent log today per chore (doneAt-desc order from useLogsInRange
+  // means the first log seen per choreId is the latest).
+  const latestTodayByChore = new Map<string, ChoreLog>()
+  for (const log of todayLogs) {
+    if (!latestTodayByChore.has(log.choreId)) latestTodayByChore.set(log.choreId, log)
+  }
+
+  let meCount = 0
+  let youCount = 0
+  for (const chore of favorites) {
+    const log = latestTodayByChore.get(chore.id)
+    if (!log) continue
+    if (log.userId === user?.uid) meCount++
+    else youCount++
+  }
+  const total = favorites.length
+  const remain = total - meCount - youCount
+  const gap = Math.abs(meCount - youCount)
+  const praise =
+    total === 0
+      ? null
+      : remain === 0
+        ? 'きょうの家事はぜんぶ終わりました。おつかれさま。'
+        : gap <= 1
+          ? 'いいバランスです。のこりは夜のうちにふたりで。'
+          : `${meCount > youCount ? partnerName : selfName}さんの手が空いたら、のこりをおねがいしてみましょう。`
 
   function recordAt(chore: Chore, doneAt: number) {
     if (!household || !user) return
@@ -165,28 +292,45 @@ export function HomeTab() {
 
   return (
     <div className="min-h-full px-4 pb-28 pt-6">
-      <div className="mb-3 overflow-hidden rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-500 p-5 text-white shadow-md shadow-blue-500/20">
-        <p className="text-sm text-white/80">こんにちは 👋</p>
-        <h1 className="mt-0.5 text-2xl font-bold">
-          {myNickname ? `${myNickname}さん` : 'ホーム'}
-        </h1>
-        <p className="mt-2 text-sm text-white/85">やった家事をタップして記録しよう</p>
-      </div>
+      <p className="text-[13px] font-medium tracking-wide text-[#a4907c] dark:text-neutral-500">
+        {formatFullDate(Date.now())}
+      </p>
+      <h1 className="mt-1.5 font-['Shippori_Mincho'] text-[27px] font-semibold leading-tight text-[#43382e] dark:text-white">
+        おかえり、{selfName}さん
+      </h1>
 
-      <p className="mb-4 text-xs text-neutral-400">
+      <TodaySummaryCard
+        meCount={meCount}
+        youCount={youCount}
+        total={total}
+        selfName={selfName}
+        partnerName={partnerName}
+        isDark={isDark}
+        praise={praise}
+      />
+
+      <p className="mb-1 mt-5 text-xs text-[#bfab95] dark:text-neutral-500">
         🕐 長押しすると、さっき・今朝・昨日など過去の時刻でも記録できます
       </p>
 
-      <div className="grid grid-cols-2 gap-3">
-        {favorites.map((chore) => (
-          <ChoreButton
-            key={chore.id}
-            chore={chore}
-            isDark={isDark}
-            onTap={handleTap}
-            onLongPress={handleLongPress}
-          />
-        ))}
+      <div className="mt-3 flex flex-col gap-2">
+        {favorites.map((chore) => {
+          const log = latestTodayByChore.get(chore.id) ?? null
+          const isSelf = log ? log.userId === user?.uid : null
+          const who = log ? (isSelf ? selfName : partnerName) : null
+          return (
+            <ChoreRow
+              key={chore.id}
+              chore={chore}
+              todayLog={log}
+              isSelf={isSelf}
+              who={who}
+              isDark={isDark}
+              onTap={handleTap}
+              onLongPress={handleLongPress}
+            />
+          )
+        })}
       </div>
 
       {favorites.length === 0 && (
@@ -203,7 +347,7 @@ export function HomeTab() {
       <button
         type="button"
         onClick={() => setShowAll(true)}
-        className="mt-5 w-full rounded-2xl border border-dashed border-neutral-300 bg-white/50 py-3.5 text-sm font-medium text-neutral-500 active:bg-white dark:border-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-400"
+        className="mt-4 w-full rounded-2xl border border-dashed border-[#b4825a59] bg-[#fffdf880] py-3.5 text-sm font-medium text-[#a67a56] active:bg-white dark:border-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-400"
       >
         ＋ その他の家事から選ぶ
       </button>

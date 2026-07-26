@@ -75,6 +75,13 @@ export function formatDayHeading(ms: number): string {
   return `${d.getMonth() + 1}/${d.getDate()}(${weekday})`
 }
 
+/** Full date heading like "7月26日 日曜日", for the Home tab header. */
+export function formatFullDate(ms: number): string {
+  const d = new Date(ms)
+  const weekday = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${weekday}曜日`
+}
+
 export function minutesAgo(m: number, now: Date = new Date()): number {
   return now.getTime() - m * 60_000
 }

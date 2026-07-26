@@ -101,7 +101,7 @@ export function QuickTimeSheet({
                   const ms = new Date(customValue).getTime()
                   if (!Number.isNaN(ms)) onPick(ms)
                 }}
-                className="flex-1 rounded-xl bg-blue-600 py-3 font-semibold text-white active:bg-blue-700"
+                className="flex-1 rounded-xl bg-[#c2683f] py-3 font-semibold text-white active:bg-[#a4542f]"
               >
                 この時刻で記録
               </button>
