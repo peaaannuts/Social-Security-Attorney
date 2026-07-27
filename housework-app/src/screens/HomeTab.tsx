@@ -7,19 +7,126 @@ import { useLogsInRange } from '../hooks/useLogs'
 import { useLongPress } from '../hooks/useLongPress'
 import { categoryChipColor, categoryEmoji } from '../lib/categoryStyle'
 import { memberColor } from '../lib/chartColors'
-import { formatDayHeading, formatFullDate, formatTime } from '../lib/date'
+import { formatDayHeading, formatTime, formatVillageDate } from '../lib/date'
 import { addLog, deleteLog } from '../lib/logService'
 import { useIsDark } from '../lib/theme'
 import type { Chore, ChoreLog } from '../types'
 import { QuickTimeSheet } from './home/QuickTimeSheet'
 
-function ChoreRow({
+const REWARD_TARGET = 300
+
+function iemoriLines(remain: number, thanksToday: number): string[] {
+  return [
+    remain === 0
+      ? 'きょうの家事はぜんぶ片づきましたなぁ。お茶でも飲みましょう。'
+      : `のこりは ${remain}こ。急がずまいりましょう。`,
+    'ふたりで分けると、家はずいぶん軽くなるものですねぇ。',
+    `きょうは 🍀 が ${thanksToday.toLocaleString('ja-JP')} たまりましたよ。えらい。`,
+    '無理はしなくてよろしい。あしたの分は、あしたの家が持ちます。',
+  ]
+}
+
+function IemoriCard({ remain, thanksToday }: { remain: number; thanksToday: number }) {
+  const [lineIndex, setLineIndex] = useState(0)
+  const lines = iemoriLines(remain, thanksToday)
+
+  return (
+    <div className="mt-4 flex items-end gap-3">
+      <div className="relative h-[72px] w-[72px] shrink-0">
+        <img
+          src="/iemori.png"
+          alt="いえもり"
+          className="h-full w-full rounded-full border-[3px] border-white bg-[#eaf3d8] object-cover shadow-[0_3px_0_rgba(120,140,90,0.25)] dark:border-neutral-700"
+        />
+        <span className="absolute -bottom-1 -left-1 rounded-full border-2 border-white bg-[#fffdf5] px-2 py-0.5 text-[10.5px] font-bold text-[#6f7a4e] shadow-[0_2px_0_rgba(120,140,90,0.25)] dark:border-neutral-700 dark:bg-neutral-900 dark:text-[#a3d17a]">
+          いえもり
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={() => setLineIndex((i) => (i + 1) % lines.length)}
+        className="min-w-0 flex-1 rounded-[22px_22px_22px_6px] border-4 border-white bg-[#fffdf5] px-4 py-3.5 text-left shadow-[0_5px_0_rgba(120,140,90,0.26)] transition active:translate-y-0.5 active:shadow-[0_3px_0_rgba(120,140,90,0.26)] dark:border-neutral-700 dark:bg-neutral-900"
+      >
+        <p className="text-[13.5px] font-bold leading-relaxed text-[#4e5c35] dark:text-neutral-200">
+          {lines[lineIndex]}
+        </p>
+        <p className="mt-2 text-[10.5px] font-medium text-[#adb493] dark:text-neutral-500">
+          タップでもうひとこと
+        </p>
+      </button>
+    </div>
+  )
+}
+
+function TodayBoardCard({
+  doneCount,
+  total,
+  dots,
+}: {
+  doneCount: number
+  total: number
+  dots: { done: boolean; color?: string }[]
+}) {
+  const progressW = total > 0 ? Math.round((doneCount / total) * 100) : 0
+
+  return (
+    <div className="mt-4 rounded-[28px] border-4 border-white bg-[#fffdf5] px-[18px] pb-4 pt-4 shadow-[0_6px_0_rgba(120,140,90,0.28)] dark:border-neutral-700 dark:bg-neutral-900">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[14.5px] font-bold text-[#4e5c35] dark:text-neutral-200">
+          きょうのおてつだいボード
+        </span>
+        <span className="text-xs font-bold text-[#8a9470] dark:text-neutral-400">
+          {doneCount} / {total}
+        </span>
+      </div>
+      <div className="mt-3 h-4 overflow-hidden rounded-full border-2 border-[#e2ebd0] bg-[#eef2e2] dark:border-neutral-700 dark:bg-neutral-800">
+        <div
+          className="h-full transition-[width] duration-300 ease-out"
+          style={{ width: `${progressW}%`, background: 'linear-gradient(180deg,#a8ce6e,#7fa84c)' }}
+        />
+      </div>
+      {dots.length > 0 && (
+        <div className="mt-3 flex gap-1.5">
+          {dots.map((d, i) => (
+            <span
+              key={i}
+              className="h-3 flex-1 overflow-hidden rounded-full bg-[#eef2e2] dark:bg-neutral-800"
+            >
+              {d.done && <span className="block h-full" style={{ backgroundColor: d.color }} />}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RewardTeaserCard({ remaining }: { remaining: number }) {
+  return (
+    <div className="mt-4 flex items-center gap-3 rounded-[26px] border-4 border-white bg-[#fffdf5]/90 px-[18px] py-4 shadow-[0_5px_0_rgba(120,140,90,0.2)] dark:border-neutral-700 dark:bg-neutral-900/90">
+      <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border-2 border-[#f7dcc0] bg-[#fdeede] text-xl dark:border-neutral-700 dark:bg-neutral-800">
+        🎁
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13.5px] font-bold leading-snug text-[#4e4133] dark:text-white">
+          たまった 🍀 でごほうび交換
+        </p>
+        <p className="mt-0.5 text-[11.5px] text-[#9a9781] dark:text-neutral-400">
+          「今日は皿洗い代わって券」まであと 🍀{remaining}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function ChoreVillageRow({
   chore,
   todayLog,
   isSelf,
   who,
   isDark,
   onTap,
+  onUndo,
   onLongPress,
 }: {
   chore: Chore
@@ -28,112 +135,56 @@ function ChoreRow({
   who: string | null
   isDark: boolean
   onTap: (chore: Chore) => void
+  onUndo: (log: ChoreLog) => void
   onLongPress: (chore: Chore) => void
 }) {
   const press = useLongPress(
-    () => onTap(chore),
+    () => {},
     () => onLongPress(chore),
   )
   const done = !!todayLog
   const doneColor = isSelf ? memberColor(true, isDark) : memberColor(false, isDark)
 
   return (
-    <button
-      type="button"
-      {...press}
-      className="flex w-full items-center gap-3 rounded-2xl bg-[#fffdf8] px-3.5 py-3 text-left shadow-[0_1px_6px_rgba(120,88,52,0.05)] ring-1 ring-[#78583414] transition active:scale-[0.985] dark:bg-neutral-900 dark:ring-white/10"
+    <div
+      onPointerDown={press.onPointerDown}
+      onPointerMove={press.onPointerMove}
+      onPointerUp={press.onPointerUp}
+      onPointerLeave={press.onPointerLeave}
+      className="flex items-center gap-3 rounded-[24px] border-4 border-white bg-[#fffdf5] px-3 py-3 shadow-[0_5px_0_rgba(120,140,90,0.22)] dark:border-neutral-700 dark:bg-neutral-900"
     >
-      {done ? (
-        <span
-          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-          style={{ backgroundColor: doneColor }}
-        >
-          ✓
-        </span>
-      ) : (
-        <span className="h-[26px] w-[26px] shrink-0 rounded-full border-2 border-dashed border-[#78583452] dark:border-neutral-600" />
-      )}
       <span
-        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl text-lg"
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-2 border-white/90 text-xl dark:border-neutral-800"
         style={{ backgroundColor: categoryChipColor(chore.category, isDark) }}
       >
         {categoryEmoji(chore.category)}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium text-[#43382e] dark:text-white">
+        <span className="block truncate font-bold text-[#4e4133] dark:text-white">
           {chore.name}
         </span>
         {done && todayLog ? (
-          <span className="mt-0.5 block text-xs text-[#a4907c] dark:text-neutral-400">
-            {who}が {formatTime(todayLog.doneAt)}
+          <span className="mt-0.5 block text-[11.5px] font-bold" style={{ color: doneColor }}>
+            {who}がやってくれた ・ {formatTime(todayLog.doneAt)}
           </span>
         ) : (
-          <span className="mt-0.5 block text-xs text-[#bfab95] dark:text-neutral-500">
-            めやす {chore.minutes}分
+          <span className="mt-0.5 block text-[11.5px] text-[#a8ad92] dark:text-neutral-500">
+            めやす {chore.minutes}分 ・ 🍀{chore.minutes * 10}
           </span>
         )}
       </span>
-      {done && <span className="shrink-0 text-base">🌿</span>}
-    </button>
-  )
-}
-
-function TodaySummaryCard({
-  meCount,
-  youCount,
-  total,
-  selfName,
-  partnerName,
-  isDark,
-  praise,
-}: {
-  meCount: number
-  youCount: number
-  total: number
-  selfName: string
-  partnerName: string
-  isDark: boolean
-  praise: string | null
-}) {
-  const remain = total - meCount - youCount
-  const meColor = memberColor(true, isDark)
-  const youColor = memberColor(false, isDark)
-  const meW = total > 0 ? Math.round((meCount / total) * 100) : 0
-  const youW = total > 0 ? Math.round((youCount / total) * 100) : 0
-
-  return (
-    <div className="mt-4 rounded-[22px] border border-[#78583414] bg-[#fffdf8] p-[18px] pb-4 shadow-[0_2px_14px_rgba(120,88,52,0.08)] dark:border-white/10 dark:bg-neutral-900">
-      <div className="flex items-baseline justify-between">
-        <span className="text-sm font-bold text-[#6b5a49] dark:text-neutral-200">今日のふたり</span>
-        <span className="text-xs font-medium text-[#a4907c] dark:text-neutral-400">
-          のこり {remain} 件
-        </span>
-      </div>
-      <div className="mt-3 flex h-3.5 overflow-hidden rounded-full bg-[#f1e8db] dark:bg-neutral-800">
-        <div
-          className="transition-[width] duration-300 ease-out"
-          style={{ width: `${meW}%`, backgroundColor: meColor }}
-        />
-        <div
-          className="transition-[width] duration-300 ease-out"
-          style={{ width: `${youW}%`, backgroundColor: youColor }}
-        />
-      </div>
-      <div className="mt-3 flex items-center gap-4">
-        <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-[#6b5a49] dark:text-neutral-300">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: meColor }} />
-          {selfName} {meCount}件
-        </span>
-        <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-[#6b5a49] dark:text-neutral-300">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: youColor }} />
-          {partnerName} {youCount}件
-        </span>
-      </div>
-      {praise && (
-        <p className="mt-3.5 border-t border-dashed border-[#78583428] pt-3 text-xs leading-relaxed text-[#8a7a68] dark:border-white/10 dark:text-neutral-400">
-          {praise}
-        </p>
-      )}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          if (todayLog) onUndo(todayLog)
+          else onTap(chore)
+        }}
+        className="shrink-0 rounded-full border-[3px] border-white px-4 py-2.5 text-[12.5px] font-bold text-[#6b4a17] shadow-[0_4px_0_rgba(180,130,40,0.45)] transition active:translate-y-[3px] active:shadow-[0_1px_0_rgba(180,130,40,0.45)] dark:border-neutral-800"
+        style={{ background: 'linear-gradient(180deg,#ffd166,#f3b23f)' }}
+      >
+        {done ? 'とりけす' : 'やった！'}
+      </button>
     </div>
   )
 }
@@ -254,23 +305,25 @@ export function HomeTab() {
 
   let meCount = 0
   let youCount = 0
+  const dots: { done: boolean; color?: string }[] = []
   for (const chore of favorites) {
     const log = latestTodayByChore.get(chore.id)
-    if (!log) continue
-    if (log.userId === user?.uid) meCount++
+    if (!log) {
+      dots.push({ done: false })
+      continue
+    }
+    const isSelf = log.userId === user?.uid
+    if (isSelf) meCount++
     else youCount++
+    dots.push({ done: true, color: memberColor(isSelf, isDark) })
   }
   const total = favorites.length
   const remain = total - meCount - youCount
-  const gap = Math.abs(meCount - youCount)
-  const praise =
-    total === 0
-      ? null
-      : remain === 0
-        ? 'きょうの家事はぜんぶ終わりました。おつかれさま。'
-        : gap <= 1
-          ? 'いいバランスです。のこりは夜のうちにふたりで。'
-          : `${meCount > youCount ? partnerName : selfName}さんの手が空いたら、のこりをおねがいしてみましょう。`
+  // Reward points: sum over EVERY log recorded today (not just favorites),
+  // so any chore worked on today contributes — this is a total-effort
+  // reward metric, distinct from the favorites-only board tally above.
+  const thanksToday = todayLogs.reduce((sum, log) => sum + log.minutes * 10, 0)
+  const rewardRemaining = Math.max(0, REWARD_TARGET - thanksToday)
 
   function recordAt(chore: Chore, doneAt: number) {
     if (!household || !user) return
@@ -286,40 +339,62 @@ export function HomeTab() {
     recordAt(chore, Date.now())
   }
 
+  function handleUndo(log: ChoreLog) {
+    if (!household) return
+    deleteLog(household.id, log.id)
+  }
+
   function handleLongPress(chore: Chore) {
     setPickingTimeFor(chore)
   }
 
   return (
-    <div className="min-h-full px-4 pb-28 pt-6">
-      <p className="text-[13px] font-medium tracking-wide text-[#a4907c] dark:text-neutral-500">
-        {formatFullDate(Date.now())}
-      </p>
-      <h1 className="mt-1.5 font-['Shippori_Mincho'] text-[27px] font-semibold leading-tight text-[#43382e] dark:text-white">
-        おかえり、{selfName}さん
-      </h1>
+    <div
+      className="min-h-full px-4 pb-28 pt-6 font-['Zen_Maru_Gothic']"
+      style={{
+        background: isDark
+          ? 'linear-gradient(180deg,#10202a 0%,#142a20 34%,#16241a 100%)'
+          : 'linear-gradient(180deg,#bfe4f0 0%,#dff0dc 34%,#cfe6b8 100%)',
+      }}
+    >
+      <div className="flex items-center justify-between gap-2.5">
+        <div
+          className="rounded-[20px] border-[3px] border-[#fffdf5] px-4 py-2.5 shadow-[0_4px_0_rgba(120,84,44,0.35)]"
+          style={{ background: 'linear-gradient(180deg,#d9a86c,#c08d55)' }}
+        >
+          <p
+            className="text-[15px] font-bold leading-tight text-[#fffdf5]"
+            style={{ textShadow: '0 1px 0 rgba(120,84,44,0.4)' }}
+          >
+            ふたりのおうち
+          </p>
+          <p className="mt-0.5 text-[10.5px] font-medium leading-none text-[#fdf1dc]">
+            {formatVillageDate(Date.now())}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-full border-[3px] border-[#f5e2b8] bg-[#fffdf5] px-3.5 py-2 shadow-[0_3px_0_rgba(160,120,60,0.25)] dark:border-neutral-700 dark:bg-neutral-900">
+          <span className="text-sm">🍀</span>
+          <span className="text-sm font-bold text-[#5d7a3a] dark:text-[#a3d17a]">
+            {thanksToday.toLocaleString('ja-JP')}
+          </span>
+        </div>
+      </div>
 
-      <TodaySummaryCard
-        meCount={meCount}
-        youCount={youCount}
-        total={total}
-        selfName={selfName}
-        partnerName={partnerName}
-        isDark={isDark}
-        praise={praise}
-      />
+      <IemoriCard remain={remain} thanksToday={thanksToday} />
 
-      <p className="mb-1 mt-5 text-xs text-[#bfab95] dark:text-neutral-500">
+      <TodayBoardCard doneCount={meCount + youCount} total={total} dots={dots} />
+
+      <p className="mb-1 mt-4 text-[11px] text-[#7a8a63] dark:text-neutral-500">
         🕐 長押しすると、さっき・今朝・昨日など過去の時刻でも記録できます
       </p>
 
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-2 flex flex-col gap-2.5">
         {favorites.map((chore) => {
           const log = latestTodayByChore.get(chore.id) ?? null
           const isSelf = log ? log.userId === user?.uid : null
           const who = log ? (isSelf ? selfName : partnerName) : null
           return (
-            <ChoreRow
+            <ChoreVillageRow
               key={chore.id}
               chore={chore}
               todayLog={log}
@@ -327,6 +402,7 @@ export function HomeTab() {
               who={who}
               isDark={isDark}
               onTap={handleTap}
+              onUndo={handleUndo}
               onLongPress={handleLongPress}
             />
           )
@@ -334,20 +410,22 @@ export function HomeTab() {
       </div>
 
       {favorites.length === 0 && (
-        <div className="mt-6 rounded-2xl bg-white/70 p-8 text-center shadow-sm ring-1 ring-black/5 dark:bg-neutral-900/70 dark:ring-white/10">
+        <div className="mt-4 rounded-[26px] border-4 border-white bg-[#fffdf5]/80 p-8 text-center shadow-[0_5px_0_rgba(120,140,90,0.2)] dark:border-neutral-700 dark:bg-neutral-900/70">
           <p className="text-3xl">⭐️</p>
-          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="mt-2 text-sm text-[#6b5a49] dark:text-neutral-400">
             お気に入りの家事がまだありません。
             <br />
-            設定から追加すると、ここにワンタップ記録ボタンが並びます。
+            設定から追加すると、ここにボードが並びます。
           </p>
         </div>
       )}
 
+      <RewardTeaserCard remaining={rewardRemaining} />
+
       <button
         type="button"
         onClick={() => setShowAll(true)}
-        className="mt-4 w-full rounded-2xl border border-dashed border-[#b4825a59] bg-[#fffdf880] py-3.5 text-sm font-medium text-[#a67a56] active:bg-white dark:border-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-400"
+        className="mt-4 w-full rounded-[22px] border-[3px] border-dashed border-[#b4825a80] bg-[#fffdf580] py-3.5 text-sm font-bold text-[#a67a56] active:bg-white dark:border-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-400"
       >
         ＋ その他の家事から選ぶ
       </button>

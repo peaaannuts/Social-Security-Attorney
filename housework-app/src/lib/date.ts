@@ -82,6 +82,15 @@ export function formatFullDate(ms: number): string {
   return `${d.getMonth() + 1}月${d.getDate()}日 ${weekday}曜日`
 }
 
+/** Hiragana-weekday date heading like "7月26日 にちようび", for the むらぐらし-style Home header. */
+export function formatVillageDate(ms: number): string {
+  const d = new Date(ms)
+  const weekday = ['にちようび', 'げつようび', 'かようび', 'すいようび', 'もくようび', 'きんようび', 'どようび'][
+    d.getDay()
+  ]
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${weekday}`
+}
+
 export function minutesAgo(m: number, now: Date = new Date()): number {
   return now.getTime() - m * 60_000
 }
