@@ -12,16 +12,16 @@ body {
   margin: 0;
   font-family: system-ui, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
   -webkit-font-smoothing: antialiased;
-  /* Warm, home-like backdrop: unbleached paper fading into a soft tan,
-     fixed so it stays put while content scrolls. No blue undertone — the
-     app's identity color moved from blue/green to terracotta/olive. */
-  background: linear-gradient(180deg, #fdf8ef 0%, #f7efe2 100%);
+  /* むらぐらし backdrop: sky fading through meadow into grass, fixed so it
+     stays put while content scrolls. Defined here rather than per-screen so
+     every tab (home / dashboard / history / settings) shares one backdrop. */
+  background: linear-gradient(180deg, #bfe4f0 0%, #dff0dc 34%, #cfe6b8 100%);
   background-attachment: fixed;
 }
 
 @media (prefers-color-scheme: dark) {
   body {
-    background: linear-gradient(180deg, #191d26 0%, #111318 32%, #0f1115 100%);
+    background: linear-gradient(180deg, #10202a 0%, #142a20 34%, #16241a 100%);
     background-attachment: fixed;
   }
 }

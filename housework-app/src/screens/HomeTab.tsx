@@ -427,15 +427,9 @@ export function HomeTab() {
     setPickingTimeFor(chore)
   }
 
+  // Backdrop comes from the shared body gradient in index.css.
   return (
-    <div
-      className="min-h-full px-4 pb-28 pt-6 font-['Zen_Maru_Gothic']"
-      style={{
-        background: isDark
-          ? 'linear-gradient(180deg,#10202a 0%,#142a20 34%,#16241a 100%)'
-          : 'linear-gradient(180deg,#bfe4f0 0%,#dff0dc 34%,#cfe6b8 100%)',
-      }}
-    >
+    <div className="min-h-full px-4 pb-28 pt-6 font-['Zen_Maru_Gothic']">
       <div className="flex items-center justify-between gap-2.5">
         <div
           className="rounded-[20px] border-[3px] border-[#fffdf5] px-4 py-2.5 shadow-[0_4px_0_rgba(120,84,44,0.35)]"
