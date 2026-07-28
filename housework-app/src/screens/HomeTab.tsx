@@ -398,12 +398,18 @@ export function HomeTab() {
   const thanksToday = todayLogs.reduce((sum, log) => sum + log.minutes * 10, 0)
   const rewardRemaining = Math.max(0, REWARD_TARGET - thanksToday)
 
-  function recordAt(chore: Chore, doneAt: number) {
+  function recordAt(chore: Chore, doneAt: number, minutes: number = chore.minutes) {
     if (!household || !user) return
-    const logId = addLog(household.id, chore, user.uid, doneAt)
+    // addLog derives minutes/score from the chore it is handed, so a chore
+    // with an overridden duration records that duration (score stays
+    // minutes × loadFactor, frozen at record time as always).
+    const logId = addLog(household.id, { ...chore, minutes }, user.uid, doneAt)
     const isNow = Math.abs(Date.now() - doneAt) < 5000
-    const whenLabel = isNow ? '' : `（${formatDayHeading(doneAt)} ${formatTime(doneAt)}）`
-    show(`「${chore.name}」${whenLabel}を記録しました`, () => {
+    const parts: string[] = []
+    if (!isNow) parts.push(`${formatDayHeading(doneAt)} ${formatTime(doneAt)}`)
+    if (minutes !== chore.minutes) parts.push(`${minutes}分`)
+    const detail = parts.length > 0 ? `（${parts.join('・')}）` : ''
+    show(`「${chore.name}」${detail}を記録しました`, () => {
       deleteLog(household.id, logId)
     })
   }
@@ -465,7 +471,7 @@ export function HomeTab() {
       <TodayBoardCard doneCount={doneCount} total={total} dots={dots} />
 
       <p className="mb-1 mt-4 text-[11px] text-[#7a8a63] dark:text-neutral-500">
-        🕐 長押しすると、さっき・今朝・昨日など過去の時刻でも記録できます
+        🕐 長押しすると、やった時刻とかかった時間を決めて記録できます
       </p>
 
       <div className="mt-2 flex flex-col gap-2.5">
@@ -519,8 +525,8 @@ export function HomeTab() {
       {pickingTimeFor && (
         <QuickTimeSheet
           chore={pickingTimeFor}
-          onPick={(doneAt) => {
-            recordAt(pickingTimeFor, doneAt)
+          onPick={(doneAt, minutes) => {
+            recordAt(pickingTimeFor, doneAt, minutes)
             setPickingTimeFor(null)
           }}
           onClose={() => setPickingTimeFor(null)}

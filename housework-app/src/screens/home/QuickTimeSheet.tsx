@@ -22,12 +22,18 @@ export function QuickTimeSheet({
   onClose,
 }: {
   chore: Chore
-  onPick: (doneAt: number) => void
+  onPick: (doneAt: number, minutes: number) => void
   onClose: () => void
 }) {
   const isDark = useIsDark()
   const [showCustom, setShowCustom] = useState(false)
   const [customValue, setCustomValue] = useState(() => toLocalInputValue(Date.now()))
+  // Seeded with the chore's standard duration; whichever time the user then
+  // picks (preset or custom), this is the duration that gets recorded.
+  const [minutes, setMinutes] = useState(String(chore.minutes))
+
+  const minutesNum = Number(minutes)
+  const minutesValid = minutes.trim() !== '' && Number.isFinite(minutesNum) && minutesNum > 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-black/40" onClick={onClose}>
@@ -48,18 +54,42 @@ export function QuickTimeSheet({
             <h3 className="truncate text-lg font-bold text-neutral-900 dark:text-white">
               {chore.name}
             </h3>
-            <p className="text-xs text-neutral-400">いつやりましたか？</p>
+            <p className="text-xs text-neutral-400">いつ・何分やりましたか？</p>
           </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="flex items-center justify-between gap-3 rounded-2xl bg-neutral-50 px-4 py-3 dark:bg-neutral-800">
+            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+              かかった時間
+            </span>
+            <span className="flex shrink-0 items-center gap-1.5">
+              <input
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={minutes}
+                onChange={(e) => setMinutes(e.target.value)}
+                className="w-20 rounded-lg border border-neutral-300 px-2.5 py-1.5 text-right text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+              />
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">分</span>
+            </span>
+          </label>
+          {!minutesValid && (
+            <p className="mt-1.5 px-1 text-xs text-red-500">1以上の数字を入れてください</p>
+          )}
         </div>
 
         {!showCustom ? (
           <div className="flex flex-col gap-2">
+            <p className="px-1 text-xs font-medium text-neutral-400">やった時刻</p>
             {PRESETS.map((preset) => (
               <button
                 key={preset.label}
                 type="button"
-                onClick={() => onPick(preset.at())}
-                className="flex items-center justify-between rounded-2xl bg-neutral-50 px-4 py-3.5 text-left active:bg-neutral-100 dark:bg-neutral-800 dark:active:bg-neutral-700"
+                disabled={!minutesValid}
+                onClick={() => onPick(preset.at(), minutesNum)}
+                className="flex items-center justify-between rounded-2xl bg-neutral-50 px-4 py-3.5 text-left active:bg-neutral-100 disabled:opacity-40 dark:bg-neutral-800 dark:active:bg-neutral-700"
               >
                 <span className="font-semibold text-neutral-900 dark:text-white">
                   {preset.label}
@@ -97,11 +127,12 @@ export function QuickTimeSheet({
               </button>
               <button
                 type="button"
+                disabled={!minutesValid}
                 onClick={() => {
                   const ms = new Date(customValue).getTime()
-                  if (!Number.isNaN(ms)) onPick(ms)
+                  if (!Number.isNaN(ms) && minutesValid) onPick(ms, minutesNum)
                 }}
-                className="flex-1 rounded-xl bg-[#c2683f] py-3 font-semibold text-white active:bg-[#a4542f]"
+                className="flex-1 rounded-xl bg-[#c2683f] py-3 font-semibold text-white disabled:opacity-50 active:bg-[#a4542f]"
               >
                 この時刻で記録
               </button>
