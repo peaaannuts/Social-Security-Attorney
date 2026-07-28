@@ -15,6 +15,13 @@ import { QuickTimeSheet } from './home/QuickTimeSheet'
 
 const REWARD_TARGET = 300
 
+/**
+ * おうちの管理人「いえもり」。フルネームは「いえもり しげる」。
+ *
+ * フルネームはキャラクター設定として控えているだけで、UIには出さない
+ * （吹き出し・名札・alt はすべて「いえもり」のまま）。台詞を書き足す
+ * ときの人物像の目安として置いてある。
+ */
 interface IemoriContext {
   remain: number
   thanksToday: number
