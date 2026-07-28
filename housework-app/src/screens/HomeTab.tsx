@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useHousehold } from '../contexts/HouseholdContext'
 import { useToast } from '../contexts/ToastContext'
@@ -13,7 +13,11 @@ import { useIsDark } from '../lib/theme'
 import type { Chore, ChoreLog } from '../types'
 import { QuickTimeSheet } from './home/QuickTimeSheet'
 
-const REWARD_TARGET = 300
+// The gacha screen and its tip data load only when opened, so neither the
+// tips nor their artwork weigh on the initial bundle.
+const GachaScreen = lazy(() =>
+  import('./gacha/GachaScreen').then((m) => ({ default: m.GachaScreen })),
+)
 
 /**
  * おうちの管理人「いえもり」。フルネームは「いえもり しげる」。
@@ -159,21 +163,34 @@ function TodayBoardCard({
   )
 }
 
-function RewardTeaserCard({ remaining }: { remaining: number }) {
+function GachaEntryCard({
+  unlockedCount,
+  onOpen,
+}: {
+  unlockedCount: number
+  onOpen: () => void
+}) {
   return (
-    <div className="mt-4 flex items-center gap-3 rounded-[26px] border-4 border-white bg-[#fffdf5]/90 px-[18px] py-4 shadow-[0_5px_0_rgba(120,140,90,0.2)] dark:border-neutral-700 dark:bg-neutral-900/90">
+    <button
+      type="button"
+      onClick={onOpen}
+      className="mt-4 flex w-full items-center gap-3 rounded-[26px] border-4 border-white bg-[#fffdf5]/90 px-[18px] py-4 text-left shadow-[0_5px_0_rgba(120,140,90,0.2)] transition active:translate-y-0.5 dark:border-neutral-700 dark:bg-neutral-900/90"
+    >
       <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border-2 border-[#f7dcc0] bg-[#fdeede] text-xl dark:border-neutral-700 dark:bg-neutral-800">
         🎁
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[13.5px] font-bold leading-snug text-[#4e4133] dark:text-white">
-          たまった 🍀 でごほうび交換
+          たまった 🍀 で家事のTIPSをひく
         </p>
         <p className="mt-0.5 text-[11.5px] text-[#9a9781] dark:text-neutral-400">
-          「今日は皿洗い代わって券」まであと 🍀{remaining}
+          {unlockedCount > 0
+            ? `あつめた TIPS ${unlockedCount}こ`
+            : 'まだ1つも開放していません'}
         </p>
       </div>
-    </div>
+      <span className="shrink-0 text-[#c3ab94]">›</span>
+    </button>
   )
 }
 
@@ -353,6 +370,7 @@ export function HomeTab() {
   const { show } = useToast()
   const isDark = useIsDark()
   const [showAll, setShowAll] = useState(false)
+  const [showGacha, setShowGacha] = useState(false)
   const [pickingTimeFor, setPickingTimeFor] = useState<Chore | null>(null)
 
   const now = new Date()
@@ -396,7 +414,8 @@ export function HomeTab() {
   // so any chore worked on today contributes — this is a total-effort
   // reward metric, distinct from the favorites-only board tally above.
   const thanksToday = todayLogs.reduce((sum, log) => sum + log.minutes * 10, 0)
-  const rewardRemaining = Math.max(0, REWARD_TARGET - thanksToday)
+  // Comes straight off the already-subscribed household doc — no extra read.
+  const unlockedTipCount = household?.tipsUnlocked?.length ?? 0
 
   function recordAt(chore: Chore, doneAt: number, minutes: number = chore.minutes) {
     if (!household || !user) return
@@ -496,7 +515,7 @@ export function HomeTab() {
         </div>
       )}
 
-      <RewardTeaserCard remaining={rewardRemaining} />
+      <GachaEntryCard unlockedCount={unlockedTipCount} onOpen={() => setShowGacha(true)} />
 
       <button
         type="button"
@@ -514,6 +533,20 @@ export function HomeTab() {
           onLongPress={handleLongPress}
           onClose={() => setShowAll(false)}
         />
+      )}
+
+      {showGacha && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+              <p className="rounded-2xl bg-[#fffdf5] px-5 py-3 text-sm font-bold text-[#6b5a49] dark:bg-neutral-900 dark:text-neutral-200">
+                よみこみ中…
+              </p>
+            </div>
+          }
+        >
+          <GachaScreen onClose={() => setShowGacha(false)} />
+        </Suspense>
       )}
 
       {pickingTimeFor && (

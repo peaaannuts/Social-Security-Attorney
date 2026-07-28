@@ -26,6 +26,12 @@ body {
   }
 }
 
+/* Reveal for a freshly drawn gacha tip. */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
 /* Avoid double-tap zoom / tap highlight on mobile one-tap buttons */
 button {
   touch-action: manipulation;

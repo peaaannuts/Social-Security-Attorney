@@ -44,6 +44,25 @@ export default defineConfig({
       workbox: {
         // Firestore handles its own offline cache/sync; only precache the app shell.
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // Tip illustrations are deliberately NOT precached. globPatterns above
+        // sweeps up every png in dist, so without this every illustration
+        // would download on service-worker install AND on every update —
+        // exactly the "startup gets heavy" problem this feature must avoid.
+        // They're fetched on demand instead and cached from then on (below),
+        // so only the tips actually opened cost anything, and they still work
+        // offline afterwards.
+        globIgnores: ['tips/**'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/tips/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'housework-tip-images',
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

@@ -6,6 +6,10 @@ export interface Household {
   targetRatio: Record<string, number>
   createdAt: number
   createdBy: string
+  /** Ids of housework tips unlocked by the gacha — collected together. */
+  tipsUnlocked?: string[]
+  /** Clovers spent on gacha spins so far. Balance = earned - this. */
+  cloversSpent?: number
 }
 
 export const CHORE_CATEGORIES = [
