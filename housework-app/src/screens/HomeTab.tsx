@@ -58,6 +58,13 @@ function IemoriCard({ remain, thanksToday }: { remain: number; thanksToday: numb
   )
 }
 
+interface BoardDot {
+  selfDone: boolean
+  partnerDone: boolean
+  selfColor: string
+  partnerColor: string
+}
+
 function TodayBoardCard({
   doneCount,
   total,
@@ -65,7 +72,7 @@ function TodayBoardCard({
 }: {
   doneCount: number
   total: number
-  dots: { done: boolean; color?: string }[]
+  dots: BoardDot[]
 }) {
   const progressW = total > 0 ? Math.round((doneCount / total) * 100) : 0
 
@@ -90,9 +97,12 @@ function TodayBoardCard({
           {dots.map((d, i) => (
             <span
               key={i}
-              className="h-3 flex-1 overflow-hidden rounded-full bg-[#eef2e2] dark:bg-neutral-800"
+              className="flex h-3 flex-1 overflow-hidden rounded-full bg-[#eef2e2] dark:bg-neutral-800"
             >
-              {d.done && <span className="block h-full" style={{ backgroundColor: d.color }} />}
+              {d.selfDone && <span className="h-full flex-1" style={{ backgroundColor: d.selfColor }} />}
+              {d.partnerDone && (
+                <span className="h-full flex-1" style={{ backgroundColor: d.partnerColor }} />
+              )}
             </span>
           ))}
         </div>
@@ -121,18 +131,20 @@ function RewardTeaserCard({ remaining }: { remaining: number }) {
 
 function ChoreVillageRow({
   chore,
-  todayLog,
-  isSelf,
-  who,
+  selfLog,
+  partnerLog,
+  selfName,
+  partnerName,
   isDark,
   onTap,
   onUndo,
   onLongPress,
 }: {
   chore: Chore
-  todayLog: ChoreLog | null
-  isSelf: boolean | null
-  who: string | null
+  selfLog: ChoreLog | null
+  partnerLog: ChoreLog | null
+  selfName: string
+  partnerName: string
   isDark: boolean
   onTap: (chore: Chore) => void
   onUndo: (log: ChoreLog) => void
@@ -142,8 +154,8 @@ function ChoreVillageRow({
     () => {},
     () => onLongPress(chore),
   )
-  const done = !!todayLog
-  const doneColor = isSelf ? memberColor(true, isDark) : memberColor(false, isDark)
+  const selfColor = memberColor(true, isDark)
+  const partnerColor = memberColor(false, isDark)
 
   return (
     <div
@@ -163,9 +175,18 @@ function ChoreVillageRow({
         <span className="block truncate font-bold text-[#4e4133] dark:text-white">
           {chore.name}
         </span>
-        {done && todayLog ? (
-          <span className="mt-0.5 block text-[11.5px] font-bold" style={{ color: doneColor }}>
-            {who}がやってくれた ・ {formatTime(todayLog.doneAt)}
+        {selfLog || partnerLog ? (
+          <span className="mt-0.5 flex flex-col gap-0.5">
+            {selfLog && (
+              <span className="block text-[11.5px] font-bold" style={{ color: selfColor }}>
+                {selfName}がやってくれた ・ {formatTime(selfLog.doneAt)}
+              </span>
+            )}
+            {partnerLog && (
+              <span className="block text-[11.5px] font-bold" style={{ color: partnerColor }}>
+                {partnerName}がやってくれた ・ {formatTime(partnerLog.doneAt)}
+              </span>
+            )}
           </span>
         ) : (
           <span className="mt-0.5 block text-[11.5px] text-[#a8ad92] dark:text-neutral-500">
@@ -177,13 +198,13 @@ function ChoreVillageRow({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          if (todayLog) onUndo(todayLog)
+          if (selfLog) onUndo(selfLog)
           else onTap(chore)
         }}
         className="shrink-0 rounded-full border-[3px] border-white px-4 py-2.5 text-[12.5px] font-bold text-[#6b4a17] shadow-[0_4px_0_rgba(180,130,40,0.45)] transition active:translate-y-[3px] active:shadow-[0_1px_0_rgba(180,130,40,0.45)] dark:border-neutral-800"
         style={{ background: 'linear-gradient(180deg,#ffd166,#f3b23f)' }}
       >
-        {done ? 'とりけす' : 'やった！'}
+        {selfLog ? 'とりけす' : 'やった！'}
       </button>
     </div>
   )
@@ -296,29 +317,33 @@ export function HomeTab() {
   const selfName = myNickname || 'あなた'
   const partnerName = (partnerUid ? household?.nicknames?.[partnerUid] : undefined) || 'パートナー'
 
-  // Most recent log today per chore (doneAt-desc order from useLogsInRange
-  // means the first log seen per choreId is the latest).
-  const latestTodayByChore = new Map<string, ChoreLog>()
+  // Most recent log today per chore, tracked separately per person — so
+  // one person having already logged a chore never blocks the other from
+  // recording their own instance of it (each person's row state is their
+  // own, not "whoever logged it last").
+  const selfLatestByChore = new Map<string, ChoreLog>()
+  const partnerLatestByChore = new Map<string, ChoreLog>()
   for (const log of todayLogs) {
-    if (!latestTodayByChore.has(log.choreId)) latestTodayByChore.set(log.choreId, log)
+    const byMap = log.userId === user?.uid ? selfLatestByChore : partnerLatestByChore
+    if (!byMap.has(log.choreId)) byMap.set(log.choreId, log)
   }
 
+  const selfColor = memberColor(true, isDark)
+  const partnerColor = memberColor(false, isDark)
   let meCount = 0
   let youCount = 0
-  const dots: { done: boolean; color?: string }[] = []
+  let doneCount = 0
+  const dots: BoardDot[] = []
   for (const chore of favorites) {
-    const log = latestTodayByChore.get(chore.id)
-    if (!log) {
-      dots.push({ done: false })
-      continue
-    }
-    const isSelf = log.userId === user?.uid
-    if (isSelf) meCount++
-    else youCount++
-    dots.push({ done: true, color: memberColor(isSelf, isDark) })
+    const selfDone = selfLatestByChore.has(chore.id)
+    const partnerDone = partnerLatestByChore.has(chore.id)
+    if (selfDone) meCount++
+    if (partnerDone) youCount++
+    if (selfDone || partnerDone) doneCount++
+    dots.push({ selfDone, partnerDone, selfColor, partnerColor })
   }
   const total = favorites.length
-  const remain = total - meCount - youCount
+  const remain = total - doneCount
   // Reward points: sum over EVERY log recorded today (not just favorites),
   // so any chore worked on today contributes — this is a total-effort
   // reward metric, distinct from the favorites-only board tally above.
@@ -382,31 +407,27 @@ export function HomeTab() {
 
       <IemoriCard remain={remain} thanksToday={thanksToday} />
 
-      <TodayBoardCard doneCount={meCount + youCount} total={total} dots={dots} />
+      <TodayBoardCard doneCount={doneCount} total={total} dots={dots} />
 
       <p className="mb-1 mt-4 text-[11px] text-[#7a8a63] dark:text-neutral-500">
         🕐 長押しすると、さっき・今朝・昨日など過去の時刻でも記録できます
       </p>
 
       <div className="mt-2 flex flex-col gap-2.5">
-        {favorites.map((chore) => {
-          const log = latestTodayByChore.get(chore.id) ?? null
-          const isSelf = log ? log.userId === user?.uid : null
-          const who = log ? (isSelf ? selfName : partnerName) : null
-          return (
-            <ChoreVillageRow
-              key={chore.id}
-              chore={chore}
-              todayLog={log}
-              isSelf={isSelf}
-              who={who}
-              isDark={isDark}
-              onTap={handleTap}
-              onUndo={handleUndo}
-              onLongPress={handleLongPress}
-            />
-          )
-        })}
+        {favorites.map((chore) => (
+          <ChoreVillageRow
+            key={chore.id}
+            chore={chore}
+            selfLog={selfLatestByChore.get(chore.id) ?? null}
+            partnerLog={partnerLatestByChore.get(chore.id) ?? null}
+            selfName={selfName}
+            partnerName={partnerName}
+            isDark={isDark}
+            onTap={handleTap}
+            onUndo={handleUndo}
+            onLongPress={handleLongPress}
+          />
+        ))}
       </div>
 
       {favorites.length === 0 && (
