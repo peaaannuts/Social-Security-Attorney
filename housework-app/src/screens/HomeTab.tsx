@@ -15,7 +15,24 @@ import { QuickTimeSheet } from './home/QuickTimeSheet'
 
 const REWARD_TARGET = 300
 
-function iemoriLines(remain: number, thanksToday: number): string[] {
+interface IemoriContext {
+  remain: number
+  thanksToday: number
+  meCount: number
+  youCount: number
+  selfName: string
+  partnerName: string
+}
+
+function iemoriLines({
+  remain,
+  thanksToday,
+  meCount,
+  youCount,
+  selfName,
+  partnerName,
+}: IemoriContext): string[] {
+  const hour = new Date().getHours()
   return [
     remain === 0
       ? 'きょうの家事はぜんぶ片づきましたなぁ。お茶でも飲みましょう。'
@@ -23,12 +40,36 @@ function iemoriLines(remain: number, thanksToday: number): string[] {
     'ふたりで分けると、家はずいぶん軽くなるものですねぇ。',
     `きょうは 🍀 が ${thanksToday.toLocaleString('ja-JP')} たまりましたよ。えらい。`,
     '無理はしなくてよろしい。あしたの分は、あしたの家が持ちます。',
+    meCount === youCount
+      ? 'ふたりの手が、ちょうど同じだけ動いておりますなぁ。'
+      : meCount > youCount
+        ? `きょうは ${selfName}さんがよく動いておられる。ひと休みも仕事のうちですよ。`
+        : `${partnerName}さんがよく動いておられますなぁ。ひとこと伝えると、きっと喜びます。`,
+    hour < 11
+      ? '朝のうちにひとつ片づけておくと、夜がずいぶん楽になりますよ。'
+      : hour < 17
+        ? '昼下がりですなぁ。根を詰めずに、ゆっくりまいりましょう。'
+        : '日も暮れました。のこりは明日にまわしても、罰は当たりません。',
+    '「ありがとう」は、ためこまずにその日のうちに渡すのがよろしい。',
+    'やった家事の数より、やってくれた相手のほうを覚えておきなさい。',
+    '完璧でなくてよいのです。だいたい片づけば、家はちゃんと回ります。',
+    '気づいた人がやる、で回していると、いつか片方が疲れます。分けましょうな。',
+    'きれいな部屋より、機嫌のよいふたりのほうが、家は嬉しいものですよ。',
+    '洗いものは逃げませんが、眠気には勝てません。先に寝てもよろしい。',
+    '同じ家事でも、やる人が違えば手間も違う。そこを見てあげなさい。',
+    'たまには家事をひとつ、まるごと相手にゆずってみるのもよいものです。',
+    'この記録は、責めるためではなく、ねぎらうためにつけるものですよ。',
+    '手が空いたときにひとつだけ。それだけで、ずいぶん違うものです。',
+    '疲れた日は、買ってきたごはんで済ませるのも立派な家事です。',
+    '「きょうは疲れた」と言えるのも、ふたり暮らしのよいところですなぁ。',
+    'この家は、ふたりが思うよりずっと、ふたりに支えられております。',
+    'わたしはここにおりますから。また明日も、のんびりまいりましょう。',
   ]
 }
 
-function IemoriCard({ remain, thanksToday }: { remain: number; thanksToday: number }) {
+function IemoriCard(ctx: IemoriContext) {
   const [lineIndex, setLineIndex] = useState(0)
-  const lines = iemoriLines(remain, thanksToday)
+  const lines = iemoriLines(ctx)
 
   return (
     <div className="mt-4 flex items-end gap-3">
@@ -405,7 +446,14 @@ export function HomeTab() {
         </div>
       </div>
 
-      <IemoriCard remain={remain} thanksToday={thanksToday} />
+      <IemoriCard
+        remain={remain}
+        thanksToday={thanksToday}
+        meCount={meCount}
+        youCount={youCount}
+        selfName={selfName}
+        partnerName={partnerName}
+      />
 
       <TodayBoardCard doneCount={doneCount} total={total} dots={dots} />
 
